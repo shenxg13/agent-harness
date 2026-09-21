@@ -1,0 +1,8 @@
+{
+  "scope": ".harness,.project-wiki",
+  "lastSyncedCommit": "",
+  "lastSyncedDate": "",
+  "notes": [
+    "Set lastSyncedCommit only if the project wants mechanical harness sync checks."
+  ]
+}
