@@ -100,3 +100,13 @@
 
 只有本来源记录允许保留来源仓库名、业务标识和历史绝对路径。
 这些标识用于追溯，不提供运行配置或跨仓库同步。
+
+## 首次发布读回
+
+- 远程仓库：[shenxg13/agent-harness](https://github.com/shenxg13/agent-harness)。
+- 可见性 public，默认分支 main，is_template=true；首次不添加 LICENSE。
+- 初始本地提交与远程 main：`5f79ff84eba1261d5eeaa0381f7e270593d5a9f7`。
+- 首次 [Harness quality CI](https://github.com/shenxg13/agent-harness/actions/runs/35616802625) 为 completed／success，绑定上述提交。
+- GitHub 连接器成功读取仓库元数据和同一提交的 README。
+- status:triage、status:planned、status:in-progress、status:blocked、status:needs-review、status:done 六个标签已读回。
+- 本条记录为实施发布证据，不是独立评审结论。后续任务按 GitHub 工作流执行。
