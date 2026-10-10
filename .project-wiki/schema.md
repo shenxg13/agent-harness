@@ -33,7 +33,8 @@ confidence: high
 
 ## Source Status
 
-- `current`: agrees with current code or active process.
+- `current`: agrees with explicitly confirmed requirements, current code or active
+  process; state which evidence applies and do not equate a requirement with implementation.
 - `historical`: useful background, not authoritative.
 - `conflict`: disagrees with current truth.
 - `needs-verification`: potentially useful but not checked.
@@ -71,11 +72,13 @@ Use `None currently known.` when a section has no entries.
 
 ## Raw Source Rules
 
-Raw source files live in root-level `raw/`. They may contain unstructured
-notes, copied chat exports, URLs, screenshot descriptions, outlines, and
-research fragments.
+Project knowledge snapshots live in `.project-wiki/raw/`. They may contain
+unstructured notes, copied chat exports, URLs, screenshot descriptions,
+outlines, and research fragments.
 
-Raw files should include:
+Record capture metadata in the owning topic alongside links to byte-preserved
+snapshots. The wiki index routes to that topic; it does not duplicate the metadata
+or requirements. Do not alter original source bytes merely to add metadata. Record:
 
 - source name or URL
 - capture date

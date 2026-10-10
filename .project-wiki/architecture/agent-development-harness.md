@@ -6,7 +6,7 @@ owners:
   - AGENTS.md
   - .harness/index.md
   - scripts/quality/check.sh
-updated: 2026-09-21
+updated: 2026-10-11
 sources:
   - path: .harness/plans/initial-extraction.md
     status: current
@@ -14,6 +14,7 @@ sources:
     status: current
 related:
   - decision.engineering-principles
+  - method.knowledge-maintenance
 confidence: high
 ---
 
@@ -32,7 +33,15 @@ confidence: high
 
 ## Contracts
 
+- 按任务读取相关知识，索引仅保留主题路由；业务需求完整保存在各自主题页。
+- 确认需求后更新所属正文并记录简短日志；仅导航或 Agent 工作方式变化才更新入口。
+- 知识搬迁保留正文、来源、边界和待定事项，具体流程见[知识维护方法](../methods/knowledge-maintenance.md)。
 - 本地质量入口默认离线；Issue、PR 测试用可控客户端模拟。
+- 本地安装由 `scripts/quality/install_local_tools.sh` 显式联网执行，在 Linux x86_64
+  将固定工具安装到新目录，默认 `var/harness-tools`；检查入口不自动查找该目录，
+  调用时临时设置 `PATH`。安装与工具边界见[工具手册](../../docs/runbooks/issue-pr-quality-tooling.md)。
+- 项目业务检查由项目所有的 `scripts/quality/project_checks.sh` 声明，CI 在通用入口之后
+  单独调用；通用入口不调用它，模板自带的版本不做任何检查。
 - 评审 JSON 校验器只验证结构与协议一致性，不证明评审实际执行。
 - 项目配置使用 Wiki 的运行模型决策和任务路由；首版不提供配置生成器。
 - 模板检查只验证其声明的文件、引用与残留规则，语义完整性仍需人工审查。
@@ -42,13 +51,13 @@ confidence: high
 1. 初始化并明确项目模型、命令和配置。
 2. 根据任务类型选择小改动、大改动、知识维护或 GitHub 流程。
 3. 执行适当验证；重大改动执行独立评审与交付流程。
-4. 按来源版本人工审阅通用更新。
+4. 按来源版本人工审阅通用更新；下游的通用改进按更新说明回流。
 
 ## Failure Modes
 
 - 把模拟 GitHub 或本地自检描述为真实远程交付或独立评审。
 - 将业务运行时加入通用质量入口，破坏独立运行能力。
-- 更新模板时覆盖下游项目自己的运行模型与知识。
+- 更新模板时覆盖下游项目自己的运行模型、知识与业务检查入口。
 
 ## Update Rules
 

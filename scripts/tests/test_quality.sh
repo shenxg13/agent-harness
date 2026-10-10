@@ -88,6 +88,60 @@ if PATH=$fake_bin /usr/bin/bash "$command_under_test" --pr 1 \
 fi
 grep -Fq 'missing required tools: gh' "$test_root/stderr"
 
+# The local installer must refuse before any download or write.
+installer="$repo_root/scripts/quality/install_local_tools.sh"
+installer_bin="$test_root/installer-bin"
+mkdir "$installer_bin"
+cat >"$installer_bin/forbidden-operation" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "${0##*/}" >>"$HARNESS_TEST_INSTALLER_OPERATIONS"
+exit 99
+EOF
+chmod +x "$installer_bin/forbidden-operation"
+for tool in curl mkdir mktemp npm install mv tar; do
+    ln -s forbidden-operation "$installer_bin/$tool"
+done
+expect_installer_refusal() {
+    local message=$1
+    shift
+    if PATH="$installer_bin:$PATH" \
+        HARNESS_TEST_INSTALLER_OPERATIONS="$test_root/installer-operations" \
+        "$installer" "$@" >"$test_root/stdout" 2>"$test_root/stderr"; then
+        printf 'FAIL: local installer accepted: %s\n' "$*" >&2
+        exit 1
+    fi
+    grep -Fq -- "$message" "$test_root/stderr" || {
+        printf 'FAIL: local installer did not report: %s\n' "$message" >&2
+        exit 1
+    }
+    [[ ! -e $test_root/installer-operations ]] || {
+        printf '%s\n' 'FAIL: installer attempted a download or write before refusal' >&2
+        exit 1
+    }
+}
+mkdir "$test_root/existing-tools"
+printf '%s\n' 'preserve existing content' >"$test_root/existing-tools/sentinel"
+cp -a "$test_root/existing-tools" "$test_root/expected-tools"
+expect_installer_refusal 'target already exists' "$test_root/existing-tools"
+git diff --no-index --exit-code -- "$test_root/expected-tools" "$test_root/existing-tools"
+expect_installer_refusal 'target already exists' "$test_root/existing-tools/sentinel"
+ln -s missing-target "$test_root/dangling-tools"
+expect_installer_refusal 'target already exists' "$test_root/dangling-tools"
+[[ $(readlink "$test_root/dangling-tools") == missing-target ]]
+expect_installer_refusal 'unknown option' --force
+expect_installer_refusal 'at most one target directory' \
+    "$test_root/first" "$test_root/second"
+expect_installer_refusal 'at most one target directory' --help "$test_root/first"
+[[ ! -e $test_root/first && ! -e $test_root/second ]]
+for digest in \
+    "$SHELLCHECK_LINUX_X64_SHA256" "$SHFMT_LINUX_X64_SHA256" \
+    "$NODE_LINUX_X64_SHA256"; do
+    [[ $digest =~ ^[0-9a-f]{64}$ ]] || {
+        printf 'FAIL: malformed artifact digest: %s\n' "$digest" >&2
+        exit 1
+    }
+done
+
 runbook="$repo_root/docs/runbooks/issue-pr-quality-tooling.md"
 for version in \
     "$BASH_MIN_VERSION" "$GIT_MIN_VERSION" "$GH_MIN_VERSION" \

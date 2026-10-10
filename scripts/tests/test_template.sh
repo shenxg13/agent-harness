@@ -47,7 +47,10 @@ expect_fail 'unknown wiki related entity'
 cp -- "$repo_root/.project-wiki/decisions/engineering-principles.md" \
     "$fixture/.project-wiki/decisions/engineering-principles.md"
 sed -i 's/run: scripts\/quality\/check.sh/run: true/' "$fixture/.github/workflows/quality.yml"
-expect_fail 'CI does not invoke'
+expect_fail 'CI does not invoke the offline quality entrypoint'
+cp -- "$repo_root/.github/workflows/quality.yml" "$fixture/.github/workflows/quality.yml"
+sed -i 's/run: scripts\/quality\/project_checks.sh/run: true/' "$fixture/.github/workflows/quality.yml"
+expect_fail 'CI does not invoke the project check entry'
 cp -- "$repo_root/.github/workflows/quality.yml" "$fixture/.github/workflows/quality.yml"
 sed -i 's/actions\/checkout@[a-f0-9]*/actions\/checkout@main/' "$fixture/.github/workflows/quality.yml"
 expect_fail 'CI action is not commit-pinned'
