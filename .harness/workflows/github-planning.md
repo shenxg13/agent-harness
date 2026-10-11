@@ -444,10 +444,14 @@ Before marking an issue done:
 5. Link relevant pull requests, commits, sub-issues, and confirmed follow-ups.
 6. Update `.project-wiki/` if durable facts changed.
 7. Update `.harness/` if workflow rules changed.
-8. Close the issue as completed, set `status:done` as its only status label, and
+8. After approval, record the Maintainer's disposition for every unadopted
+   observation: a follow-up Issue link or “不处理”. Omit this record when review
+   left no observations; follow the
+   [observation rules](review-sync.md#remediation-scope-and-observations).
+9. Close the issue as completed, set `status:done` as its only status label, and
    run the status check.
-9. Use `.harness/workflows/review-sync.md` for non-trivial handoff.
-10. The session executing completion must perform [Worktree Cleanup](#worktree-cleanup).
+10. Use `.harness/workflows/review-sync.md` for non-trivial handoff.
+11. The session executing completion must perform [Worktree Cleanup](#worktree-cleanup).
     Implementation worktrees are removed only after the PR is merged and all
     post-merge acceptance is complete. Review worktrees are removed after that
     round's evidence is posted. Cancellation also requires cleanup by the session

@@ -14,6 +14,8 @@ sources:
     status: current
   - path: .harness/workflows/github-planning.md
     status: current
+  - path: .harness/workflows/review-sync.md
+    status: current
   - path: .harness/tooling-runtime.md
     status: current
   - path: docs/provenance.md
@@ -68,6 +70,12 @@ confidence: high
   调用时临时设置 `PATH`。安装与工具边界见[工具手册](../../docs/runbooks/issue-pr-quality-tooling.md)。
 - 项目业务检查由项目所有的 `scripts/quality/project_checks.sh` 声明，CI 在通用入口之后
   单独调用；通用入口不调用它，模板自带的版本不做任何检查。
+- 整改仅覆盖未关闭台账项及其必要回归和文档同步，按条目列出文件并在接受交接前核对；
+  观察项默认单独记录，维护者在在线 Issue 纳入后按台账核验，未纳入项在批准后逐条处置。
+  维护者与风险责任人按已确认运行模型认定；未声明时个人仓库由账号所有者承担，组织仓库
+  须先声明。完整规则见[评审协议](../../.harness/workflows/review-sync.md#review-convergence-protocol)，
+  依据为 2026-10-11 [Issue #7 的确认记录](../../docs/provenance.md#评审整改与维护者认定需求)。
+  观察项和整改记录仅用 Markdown，JSON 校验器不检查这些内容，实施与验证证据由关联 PR 保存。
 - 评审 JSON 校验器只验证结构与协议一致性，不证明评审实际执行。
 - 项目配置使用 Wiki 的运行模型决策和任务路由；首版不提供配置生成器。
 - 模板检查只验证其声明的文件、引用与残留规则，语义完整性仍需人工审查。
