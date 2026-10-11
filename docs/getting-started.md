@@ -77,6 +77,7 @@ CI 调用同一本地质量入口；GitHub CLI 与连接器的访问需分别验
 不改变检出状态的只读命令，见 [评审流程](../.harness/workflows/review-sync.md)。
 
 忽略文件不随工作树共享；检查工具可安装在仓库外共享目录，并按命令设置绝对 `PATH`，
+主检出默认位置 `var/harness-tools` 的安装也可以从各工作树复用，定位方法
 见 [本地资源约定](../.harness/tooling-runtime.md#worktrees-and-local-resources)。项目 runbook
 须声明端口、数据库和数据目录等资源哪些可共享、哪些须独占或单独分配。
 

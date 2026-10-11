@@ -58,8 +58,10 @@ confidence: high
   执行完成步骤的会话负责实施、评审及取消时的清理，并先检查被忽略文件，见
   [交付流程](../../.harness/workflows/github-planning.md#worktree-cleanup)。
 - 工作树不共享被忽略的本地资源；仓库外的兼容检查工具可通过绝对 `PATH` 共用，
-  端口、数据库、数据目录的共享或独占方式由项目 runbook 声明，见
-  [运行时指南](../../.harness/tooling-runtime.md#worktrees-and-local-resources)。
+  主检出默认位置 `var/harness-tools` 的安装同样可以按绝对路径从它的各个链接工作树复用，
+  独立克隆不适用。端口、数据库、数据目录的共享或独占方式由项目 runbook 声明。定位主检出的
+  方法见[运行时指南](../../.harness/tooling-runtime.md#worktrees-and-local-resources)，
+  依据为 2026-10-11 [Issue #10 的确认记录](../../docs/provenance.md#工作树复用检查工具需求)。
 - 并发不消除契约或结构版本链的真实依赖，仍由 Issue 声明先后。合并后核对该次 `main`
   推送的检查，失败时先回退或立即修复，检查恢复前不合并其他 PR；不要求合并前重跑最新
   组合，不引入合并队列，也不改变固定评审面、轮次和阻断规则。

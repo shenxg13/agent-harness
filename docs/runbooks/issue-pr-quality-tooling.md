@@ -42,6 +42,9 @@ Node.js 安装固定版本的 npm 与 markdownlint-cli2，最后运行一次工�
 禁用 Node 编译缓存。若发布时目标已出现，脚本失败并清理自身暂存，保留已有目标。
 辅助工具为 curl、tar、xz、sha256sum 和 install。
 
+装在主检出默认位置的工具可以从它的各个工作树复用；定位主检出和在工作树里安装的写法见
+[运行时指南](../../.harness/tooling-runtime.md#worktrees-and-local-resources)。
+
 不使用脚本或在其他架构上，按以下方式手工安装。ShellCheck 从 [官方发行](https://github.com/koalaman/shellcheck/releases/tag/v0.10.0)
 获取，shfmt 从 [官方发行](https://github.com/mvdan/sh/releases/tag/v3.13.1)
 获取。工具合同记录 Linux x86_64 资产摘要；其他架构应选官方对应资产，

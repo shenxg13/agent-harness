@@ -72,6 +72,37 @@ For an existing compatible installation, omit installation and use its absolute
 or clean a shared installation while another session uses it. Filesystem and
 network authorization still apply to an external installation.
 
+An installation in the main checkout's default location, `var/harness-tools`,
+can be reused the same way from the main checkout, its subdirectories and its
+linked worktrees. Inside a worktree `git rev-parse --show-toplevel` returns the
+worktree's own root, so resolve the main checkout from the shared Git directory
+and scope the tool path to the command:
+
+```bash
+main_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+PATH="$main_root/var/harness-tools/bin:$PATH" scripts/quality/check.sh
+```
+
+Before reusing it, confirm that `$main_root/var/harness-tools/bin` exists, then
+check the versions with `scripts/quality/check.sh --check-tools-only` under the
+same command-scoped `PATH`. When the directory is absent, install only when
+installation is authorized, not to diagnose availability.
+
+Run without an argument inside a worktree, the installer targets that worktree's
+own `var/harness-tools`, which is lost when the worktree is cleaned up. To
+install once for every worktree, pass the path under the main checkout:
+
+```bash
+scripts/quality/install_local_tools.sh "$main_root/var/harness-tools"
+```
+
+This lookup applies only to linked worktrees of the same repository. A
+standalone clone has its own Git directory, so the command resolves to the clone
+itself and cannot find the original checkout.
+
+Both locations follow the same rules: check the declared tool versions, and do
+not replace or clean an installation while another session uses it.
+
 Projects declare in their own runbooks which local resources can be shared and
 which require exclusive use or separate allocation, including ports, databases
 and data directories. A worktree alone does not isolate those resources. Preserve
