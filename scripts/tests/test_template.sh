@@ -34,9 +34,18 @@ cp -- "$repo_root/README.md" "$fixture/README.md"
 printf '\n%s-%s\n' tm lab >>"$fixture/README.md"
 expect_fail 'source-specific residue'
 cp -- "$repo_root/README.md" "$fixture/README.md"
-printf '\n%s-%s\n' sql apm >>"$fixture/README.md"
-expect_fail 'source-specific residue'
-cp -- "$repo_root/README.md" "$fixture/README.md"
+# Source profiles belong to the adopting repository, not to this regression.
+node - "$fixture/docs/provenance.md" >"$test_root/source-markers" <<'NODE'
+const fs = require('node:fs');
+const provenance = fs.readFileSync(process.argv[2], 'utf8');
+const profile = JSON.parse(provenance.match(/```json\n([\s\S]*?)\n```/)[1]);
+for (const marker of profile.source_markers) process.stdout.write(`${marker}\0`);
+NODE
+while IFS= read -r -d '' marker; do
+    printf '\n%s\n' "$marker" >>"$fixture/README.md"
+    expect_fail 'source-specific residue'
+    cp -- "$repo_root/README.md" "$fixture/README.md"
+done <"$test_root/source-markers"
 printf '\n[escape](../../outside.md)\n' >>"$fixture/README.md"
 expect_fail 'reference escapes repository'
 cp -- "$repo_root/README.md" "$fixture/README.md"

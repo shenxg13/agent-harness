@@ -149,9 +149,19 @@ if [[ ${0##*/} == sha256sum ]]; then cat >/dev/null; fi
 exit 0
 EOF
 chmod +x "$publication_fixture/bin/noop"
-for tool in curl tar sha256sum install npm; do
+for tool in curl tar xz sha256sum install npm; do
     ln -s noop "$publication_fixture/bin/$tool"
 done
+# This fixture tests publication, independently of the host's installer support.
+cat >"$publication_fixture/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+case ${1:-} in
+    -s) printf '%s\n' Linux ;;
+    -m) printf '%s\n' x86_64 ;;
+    *) exit 2 ;;
+esac
+EOF
+chmod +x "$publication_fixture/bin/uname"
 # Exercise both GNU exit statuses for a skipped no-clobber move. The real mv
 # still owns the filesystem operation, so target-preservation checks remain real.
 real_mv=$(command -v mv)
@@ -166,6 +176,10 @@ cat >"$publication_fixture/scripts/quality/check.sh" <<'EOF'
 set -euo pipefail
 [[ $1 == --check-tools-only ]]
 case $HARNESS_TEST_TARGET_KIND in
+    absent)
+        staged_bin=${PATH%%:*}
+        printf '%s\n' 'staged tools' >"${staged_bin%/bin}/payload"
+        ;;
     empty) mkdir "$HARNESS_TEST_PUBLICATION_TARGET" ;;
     directory)
         mkdir "$HARNESS_TEST_PUBLICATION_TARGET"
@@ -204,6 +218,17 @@ for scenario in empty:0 directory:0 file:0 symlink:0 empty:1 directory:1 file:1 
     esac
     [[ -z $(find "$publication_fixture" -maxdepth 1 -name '.harness-tools.*' -print -quit) ]]
 done
+publication_target="$publication_fixture/target-absent"
+PATH="$publication_fixture/bin:$PATH" \
+    HARNESS_TEST_PUBLICATION_TARGET="$publication_target" \
+    HARNESS_TEST_TARGET_KIND=absent \
+    HARNESS_TEST_REAL_MV="$real_mv" HARNESS_TEST_MOVE_STATUS=0 \
+    "$publication_fixture/scripts/quality/install_local_tools.sh" "$publication_target" \
+    >"$test_root/stdout" 2>"$test_root/stderr"
+[[ $(ls -A "$publication_target") == payload ]]
+[[ $(cat "$publication_target/payload") == 'staged tools' ]]
+grep -Fq "installed pinned quality tools into $publication_target" "$test_root/stdout"
+[[ -z $(find "$publication_fixture" -maxdepth 1 -name '.harness-tools.*' -print -quit) ]]
 
 for digest in \
     "$SHELLCHECK_LINUX_X64_SHA256" "$SHFMT_LINUX_X64_SHA256" \
