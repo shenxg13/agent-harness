@@ -103,9 +103,11 @@ implementation and do not count as acceptance evidence.
 4. Resolve every open question that could materially change implementation and
    keep the issue body synchronized as the current contract.
 5. Obtain user confirmation and check the confirmation item in the issue body.
-6. After the executable-contract gate below passes, transition the issue to
+6. Select exactly one `type:*` label by the primary deliverable and add it as
+   described in [Issue Types](#issue-types).
+7. After the executable-contract gate below passes, transition the issue to
    `status:planned`.
-7. Return the issue URL for a separate implementation session. Do not implement
+8. Return the issue URL for a separate implementation session. Do not implement
    it in the requirements session.
 
 The requirements body records verification commands as a future plan and must
@@ -229,6 +231,14 @@ confirmation, and negative statements such as `用户未确认` or `用户尚未
 Large changes still require the plan, test cases, and user confirmation defined
 by `.harness/workflows/large-change.md`.
 
+The same gate also requires exactly one `type:*` label. Missing or multiple
+types fail before any remote write, including comments, with a diagnostic that
+lists the types found (or `none`). `repair` and `--force` cannot bypass it.
+Other transitions and checks do not require a type; work already beyond planned
+is not retroactively gated. The script validates types without adding or
+changing them, and preserves them on every transition, including completion
+and cancellation.
+
 ### Conditional Performance And Threat-Model Contract
 
 Apply this additional requirement only when a non-trivial Issue involves scale,
@@ -247,6 +257,36 @@ bounded probe or stronger evidence only when uncertainty could materially
 change the decision, rather than defaulting to an experiment whose cost
 approaches implementation.
 
+## Issue Types
+
+Every Issue has exactly one `type:*` label, selected by its primary deliverable.
+Titles describe the work directly, without a fixed prefix. The default types
+are:
+
+| Label | Primary deliverable |
+| --- | --- |
+| `type:feature` | A new capability or change to accepted behavior, including design and investigation for it |
+| `type:defect` | A fix for implemented behavior that violates its original contract or is clearly wrong |
+| `type:release` | Packaging, release, target-environment verification, and documentation delivered with the version |
+| `type:maintenance` | Work without externally visible behavior changes: dependency/runtime upgrades, renaming, refactoring, or cleanup |
+| `type:process` | Collaboration-only changes to Harness rules, templates, or quality tools |
+
+When the Harness itself is the product, as in this template repository, classify
+product changes as feature, defect, or maintenance according to their nature.
+Reserve `type:process` for collaboration conventions outside the product.
+
+The requirements session adds the selected label before setting `status:planned`:
+
+```bash
+gh issue edit ISSUE -R OWNER/REPO --add-label type:feature
+```
+
+A misclassification can be corrected directly with `gh issue edit --remove-label`
+and `--add-label`, keeping exactly one type; no audit comment or status transition
+is required. Projects may add or remove types. The script recognizes any label
+whose name starts with `type:`, without a fixed allowlist. Default names and
+colors are in the [initialization guide](../../docs/getting-started.md#接入-github).
+
 ## Status Model
 
 Every open implementation issue must have exactly one of these labels:
@@ -259,8 +299,9 @@ Every open implementation issue must have exactly one of these labels:
 | `status:blocked` | Work cannot continue until a documented condition changes |
 | `status:needs-review` | Implementation is Ready for review or awaiting required post-merge verification |
 
-A successfully completed issue is closed with reason `completed` and has only
-`status:done`. A duplicate, rejected, or canceled issue is closed as
+A successfully completed issue is closed with reason `completed` and has
+`status:done` as its only `status:*` label, preserving type and other ordinary
+labels. A duplicate, rejected, or canceled issue is closed as
 `not planned`, has no `status:*` label, and should use a reason label such as
 `duplicate`, `wontfix`, or `invalid` when applicable.
 
@@ -403,8 +444,8 @@ Before marking an issue done:
 5. Link relevant pull requests, commits, sub-issues, and confirmed follow-ups.
 6. Update `.project-wiki/` if durable facts changed.
 7. Update `.harness/` if workflow rules changed.
-8. Close the issue as completed, set only `status:done`, and run the status
-   check.
+8. Close the issue as completed, set `status:done` as its only status label, and
+   run the status check.
 9. Use `.harness/workflows/review-sync.md` for non-trivial handoff.
 10. The session executing completion must perform [Worktree Cleanup](#worktree-cleanup).
     Implementation worktrees are removed only after the PR is merged and all
@@ -479,7 +520,8 @@ When reopening the original issue:
 4. Update the issue body as the current contract after confirmation and keep
    historical completion/reopening evidence in comments.
 5. Implement on an issue-linked branch and pull request. After merge and all
-   current checks, close as completed again and restore only `status:done`.
+   current checks, close as completed again and restore `status:done` as its only
+   status label, preserving type and other ordinary labels.
 
 Example repair after reopening:
 

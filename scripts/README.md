@@ -6,7 +6,7 @@
 | `scripts/quality/check.sh --check-tools-only` | Required local tool versions | None |
 | `scripts/quality/check.sh --pr PR --repo OWNER/REPO` | Local checks plus live PR contract | GitHub |
 | `scripts/quality/check_template.sh` | Tracked files, local links, wiki ownership and CI entrypoint | None |
-| `scripts/github/issue_status.sh` | Live contract/state checks and audited transitions | GitHub |
+| `scripts/github/issue_status.sh` | Live contract/state checks, exactly one type at planned admission, and audited transitions | GitHub |
 | `scripts/github/pr_contract.sh` | Live PR structure, branch and Issue association | GitHub |
 | `scripts/github/review_convergence.sh RECORD.json` | Local review evidence structure | None |
 | `scripts/quality/project_checks.sh` | Project-owned business checks; the template version checks nothing | Declared by the project |
@@ -28,6 +28,14 @@ code fences, active wiki owners/source paths, necessary files and the CI entrypo
 reads literal source markers from the provenance profile and scans extraction
 residue; it is not a blanket restriction on downstream project vocabulary or assets. Template placeholders and external links are not fetched. Human review
 still owns semantic correctness and external-link validity.
+
+The Issue status command requires exactly one `type:*` label whenever it checks
+planned admission: setting planned, checking planned, or claiming planned work.
+Missing or multiple types fail before comments or label writes; `repair` and
+`--force` cannot bypass this check. Any `type:` prefix is accepted, including
+project-defined types. Other states are not retroactively gated. The command
+never assigns or changes types and preserves them on every transition, including
+completion and cancellation; see [Issue types](../.harness/workflows/github-planning.md#issue-types).
 
 Installation is never part of the default read-only quality command. The CI
 provisioner requires a CI environment; local setup follows the tool runbook.

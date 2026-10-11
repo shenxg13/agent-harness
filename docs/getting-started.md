@@ -39,7 +39,7 @@ git diff --cached --check
 ## 接入 GitHub
 
 先确定 owner、仓库名、可见性、许可证安排与发布范围，再创建或关联远程并推送。
-配置以下状态标签，随后回读核对。模板仓库设置只在该仓库要供其他项目复用时启用，
+配置以下状态标签和默认类型标签，随后回读核对。模板仓库设置只在该仓库要供其他项目复用时启用，
 普通业务仓库不需要：
 
 | Label | Color |
@@ -50,6 +50,11 @@ git diff --cached --check
 | `status:blocked` | `B60205` |
 | `status:needs-review` | `FBCA04` |
 | `status:done` | `0E8A16` |
+| `type:feature` | `A2EEEF` |
+| `type:defect` | `D73A4A` |
+| `type:release` | `5319E7` |
+| `type:maintenance` | `C5DEF5` |
+| `type:process` | `FEF2C0` |
 
 每次操作显式核对目标。示例中的 OWNER/REPO 是需要替换的占位值：
 
@@ -57,7 +62,9 @@ git diff --cached --check
 gh label create 'status:triage' --color D4C5F9 --repo OWNER/REPO
 ```
 
-对其他状态使用表中名称和颜色；已有标签先读取再决定是否调整。
+对其他状态和类型使用表中名称和颜色；已有标签先读取再决定是否调整。
+按主要交付物为每个 Issue 选择恰好一个类型，在转为 `status:planned` 前添加；
+类型含义、项目扩展与更正规则见 [Issue 类型](../.harness/workflows/github-planning.md#issue-types)。
 接入后的任务使用需求模板、审计状态命令、PR 模板及独立评审流程。
 CI 调用同一本地质量入口；GitHub CLI 与连接器的访问需分别验证。
 
