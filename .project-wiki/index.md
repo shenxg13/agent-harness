@@ -1,15 +1,25 @@
 # Project Wiki
 
-Read the [schema](schema.md), relevant entities and the source paths they own.
-The wiki stores durable facts; runtime graphs are derived and disposable.
+Select the topics the current task touches and follow cross-topic links only
+where it reaches them; a task does not require reading every page. Confirmed
+detail lives in the topic pages, and this index only routes to them. Read the
+[schema](schema.md) when creating or restructuring entities. The wiki stores
+durable facts; runtime graphs are derived and disposable.
 
 ## Architecture
 
-- [Agent development harness](architecture/agent-development-harness.md)
+- [Agent development harness](architecture/agent-development-harness.md) — read
+  when changing harness structure, tool boundaries or project adoption contracts
 
 ## Decisions
 
-- [Engineering principles](decisions/engineering-principles.md)
+- [Engineering principles](decisions/engineering-principles.md) — read when
+  evaluating correctness, recovery, resource costs or control tradeoffs
+
+## Methods
+
+- [Knowledge maintenance](methods/knowledge-maintenance.md) — read when
+  maintaining knowledge, reorganizing documents or resolving conflicting claims
 
 ## Templates
 
@@ -21,5 +31,6 @@ The wiki stores durable facts; runtime graphs are derived and disposable.
 - [Method](templates/method.md)
 - [Operating model](templates/operating-model.md) — a decision template, not an active model
 
-Add project entities to this index as facts become established. Preserve rough
-input in `raw/` when needed, then promote supported durable claims.
+Add project entities to this index as facts become established, each with a
+note on when to read it. Preserve rough input in `.project-wiki/raw/` when
+needed, then promote supported durable claims.

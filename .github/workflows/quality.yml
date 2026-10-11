@@ -32,3 +32,5 @@ jobs:
         run: scripts/quality/install_ci_tools.sh
       - name: Check harness and offline regressions
         run: scripts/quality/check.sh
+      - name: Check project-owned regressions
+        run: scripts/quality/project_checks.sh

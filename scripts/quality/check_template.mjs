@@ -19,13 +19,15 @@ const required = [
     'operating-model'].map(n => `.project-wiki/templates/${n}.md`),
   '.project-wiki/architecture/agent-development-harness.md',
   '.project-wiki/decisions/engineering-principles.md',
+  '.project-wiki/methods/knowledge-maintenance.md',
   '.github/ISSUE_TEMPLATE/requirement.md', '.github/ISSUE_TEMPLATE/config.yml',
   '.github/pull_request_template.md', '.github/review_convergence_comment.md',
   '.github/workflows/quality.yml', 'scripts/README.md',
   ...['issue_status.sh', 'pr_contract.sh', 'review_convergence.sh',
     'review_convergence.jq'].map(n => `scripts/github/${n}`),
   ...['check.sh', 'check_template.sh', 'check_template.mjs', 'tool-versions.env',
-    'install_ci_tools.sh'].map(n => `scripts/quality/${n}`),
+    'install_ci_tools.sh', 'install_local_tools.sh',
+    'project_checks.sh'].map(n => `scripts/quality/${n}`),
   ...['issue_status', 'pr_contract', 'review_convergence', 'quality',
     'template'].map(n => `scripts/tests/test_${n}.sh`),
   'docs/getting-started.md', 'docs/updating.md', 'docs/provenance.md',
@@ -129,6 +131,7 @@ for (const { name, front } of entities.values()) {
 }
 const workflow = texts.get('.github/workflows/quality.yml') ?? '';
 if (!/^\s+run: scripts\/quality\/check\.sh\s*$/m.test(workflow)) fail('CI does not invoke the offline quality entrypoint');
+if (!/^\s+run: scripts\/quality\/project_checks\.sh\s*$/m.test(workflow)) fail('CI does not invoke the project check entry');
 for (const match of workflow.matchAll(/uses:\s+([^\s]+)@([^\s]+)/g)) {
   if (!/^[0-9a-f]{40}$/.test(match[2])) fail(`CI action is not commit-pinned: ${match[1]}`);
 }

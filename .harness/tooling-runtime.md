@@ -2,7 +2,8 @@
 
 ## Discovery Order
 
-1. Read the catalog, selected workflow and relevant project knowledge.
+1. Use the root entry or catalog to locate the applicable workflow and relevant
+   knowledge; reuse context already read instead of traversing every document.
 2. Find the canonical command in [scripts](../scripts/README.md).
 3. Check tool availability and the declared version contract.
 4. Reuse an installed compatible runtime; scope environment overrides to one command.
@@ -22,16 +23,32 @@ passwords or credential files, or install tools merely to diagnose availability.
 | --- | --- |
 | Offline tool availability and versions | `scripts/quality/check.sh --check-tools-only` |
 | Offline quality and workflow regressions | `scripts/quality/check.sh` |
+| Project-owned business checks | `scripts/quality/project_checks.sh` |
+| Pinned lint tools in a repository-local directory | `scripts/quality/install_local_tools.sh` |
 | Template files and references | `scripts/quality/check_template.sh` |
 | Issue lifecycle, after GitHub connection | `scripts/github/issue_status.sh` |
 | Live PR contract | `scripts/github/pr_contract.sh` |
 | Local review JSON structure | `scripts/github/review_convergence.sh RECORD.json` |
 
 The [tool runbook](../docs/runbooks/issue-pr-quality-tooling.md) owns installation.
+The Linux x86_64 local installer downloads from the network and stages tools
+beside its target, `var/harness-tools` by default. It accepts one relative or
+absolute directory, rejects an existing target, a final `.` or `..` component,
+unknown options and extra arguments before writing, and cleans staging files on failure. Run it when
+installation is authorized, not to diagnose availability. It does not change
+`PATH`, system directories or the user's npm cache or global prefix; scope the
+tool-path override to the command:
+
+```bash
+PATH="$PWD/var/harness-tools/bin:$PATH" scripts/quality/check.sh
+```
+
 Default checks use simulated GitHub clients and need neither a real `gh` binary
 nor GitHub authentication. Live modes require `gh` and authorized network access.
 A project's language runtime and service requirements belong in its wiki and
-runbooks. No business interpreter, database or search service is a harness default.
+runbooks. No business interpreter, database or search service is a harness
+default: `scripts/quality/check.sh` never runs the project-owned entry, and CI
+runs that entry as a separate step.
 
 ## Phase And Quality Boundaries
 

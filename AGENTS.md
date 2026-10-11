@@ -1,12 +1,25 @@
 # Agent Entry
 
-For non-trivial development work:
+Explicit user authorization defines the current task. Keep confirmed
+requirements, pending proposals and implemented behavior distinguishable.
 
-1. Read `.harness/index.md` and `.harness/rules.md`.
-2. Use `.harness/catalog.md` to select the workflow.
-3. Read relevant `.project-wiki/` entities and current source before editing.
-4. Read `.harness/tooling-runtime.md` before running repository tools.
-5. Update durable project knowledge when behavior or decisions change.
+## Read By Task
+
+- Copy or string edit: read the target file and its direct constraints.
+- Non-trivial development or process change: read `.harness/index.md` and
+  `.harness/rules.md`, use `.harness/catalog.md` to select the applicable
+  workflow, and inspect the relevant source before editing.
+- Work that touches project requirements: select topics from
+  `.project-wiki/index.md`; follow cross-topic links only where the task
+  touches them.
+- Before running repository tools or diagnosing the environment: read
+  `.harness/tooling-runtime.md`.
+- Knowledge updates: follow `.harness/workflows/wiki-update.md` and
+  `.project-wiki/methods/knowledge-maintenance.md`, and edit the topic that
+  owns the rule.
+
+Reuse instructions already read while they still apply. This entry and the wiki
+index hold routes; detailed requirements are not repeated here.
 
 ## Lifecycle
 
@@ -35,8 +48,14 @@ network-restricted sandbox blocks GitHub, use a narrowly scoped authorized
 outside-sandbox invocation. A network error is not evidence of a bad token;
 follow the diagnostic sequence in `.harness/tooling-runtime.md`.
 
-## Quality
+## Quality And Knowledge
 
 `scripts/quality/check.sh` runs offline harness checks. The `--pr` mode reads
 GitHub and requires separately authorized network access. Project-specific
-checks are declared in project knowledge and added explicitly to delivery plans.
+checks are declared in project knowledge, run through the project-owned
+`scripts/quality/project_checks.sh` entry, and are added explicitly to
+delivery plans.
+
+When a durable requirement or workflow changes, update the owning topic and
+leave a summary with a link in the log. Change the wiki index only for
+navigation and this entry only for agent-wide rules.
