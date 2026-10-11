@@ -227,7 +227,13 @@ PATH="$publication_fixture/bin:$PATH" \
     >"$test_root/stdout" 2>"$test_root/stderr"
 [[ $(ls -A "$publication_target") == payload ]]
 [[ $(cat "$publication_target/payload") == 'staged tools' ]]
-grep -Fq "installed pinned quality tools into $publication_target" "$test_root/stdout"
+# Compare the installed location, not the spelling inherited from TMPDIR.
+expected_target=$(cd -- "$publication_target" && pwd)
+grep -Fxq "installed pinned quality tools into $expected_target" "$test_root/stdout" || {
+    printf 'FAIL: installer did not report the installed location: %s\n' "$expected_target" >&2
+    cat "$test_root/stdout" >&2
+    exit 1
+}
 [[ -z $(find "$publication_fixture" -maxdepth 1 -name '.harness-tools.*' -print -quit) ]]
 
 for digest in \
