@@ -4,6 +4,30 @@ For a repository without its first GitHub remote, use the local review handoff
 in `.harness/workflows/local-bootstrap.md`. The formal R0–R3 protocol below
 applies to real GitHub Issue/PR handoffs after connection.
 
+Use a separate detached worktree pinned to the reviewed `head_sha`, or inspect
+with read-only commands such as `git show` and `git diff` that do not change any
+checkout. Never switch branches or reset another session's checkout. A review
+worktree is a sibling named `REPO-issue-N-review-ROUND`; use the frozen SHA, not a
+moving branch name. From the repository checkout:
+
+```bash
+issue_number=2
+review_round=R1
+review_head=${HEAD_SHA:?set the fixed reviewed head SHA}
+repo_root=$(git rev-parse --show-toplevel)
+repo_name=$(basename "$repo_root")
+worktree_path="$(dirname "$repo_root")/${repo_name}-issue-${issue_number}-review-${review_round}"
+git worktree add --detach "$worktree_path" "$review_head"
+cd "$worktree_path"
+```
+
+After posting the round's evidence, the session completing the review removes
+its worktree using [Worktree Cleanup](github-planning.md#worktree-cleanup),
+including inspection and preservation of ignored evidence/data. Cancellation
+also requires cleanup. Tool and local resource isolation follows
+[tooling and runtime](../tooling-runtime.md#worktrees-and-local-resources).
+These checkout rules do not change formal rounds or the fixed review surface.
+
 1. Review the diff for unintended changes.
 2. Verify relevant reported checks. If GitHub reports none, record
    “未配置/未报告检查” rather than saying checks are pending.

@@ -34,3 +34,8 @@ durable facts; runtime graphs are derived and disposable.
 Add project entities to this index as facts become established, each with a
 note on when to read it. Preserve rough input in `.project-wiki/raw/` when
 needed, then promote supported durable claims.
+
+## Change History
+
+- [New knowledge entries](log/) — read in filename order for change summaries and topic links
+- [Frozen history](log.md) — earlier entries, retained without further additions

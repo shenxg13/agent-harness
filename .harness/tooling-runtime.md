@@ -50,6 +50,33 @@ runbooks. No business interpreter, database or search service is a harness
 default: `scripts/quality/check.sh` never runs the project-owned entry, and CI
 runs that entry as a separate step.
 
+## Worktrees And Local Resources
+
+Git worktrees share repository objects and refs, but ignored tools, dependencies,
+evidence and data are local to each directory; creating a worktree does not copy
+or share them. Never assume the main checkout's `var/` exists in a new worktree.
+
+Compatible check tools can be installed once in a shared directory outside all
+worktrees and reused through a command-scoped absolute `PATH`. When installation
+is authorized, the local installer accepts that external path as its argument.
+For example (choose a new shared target for installation):
+
+```bash
+shared_tools="$(dirname "$(git rev-parse --show-toplevel)")/harness-tools"
+scripts/quality/install_local_tools.sh "$shared_tools"
+PATH="$shared_tools/bin:$PATH" scripts/quality/check.sh
+```
+
+For an existing compatible installation, omit installation and use its absolute
+`bin` path from each worktree. Check the declared tool versions; do not replace
+or clean a shared installation while another session uses it. Filesystem and
+network authorization still apply to an external installation.
+
+Projects declare in their own runbooks which local resources can be shared and
+which require exclusive use or separate allocation, including ports, databases
+and data directories. A worktree alone does not isolate those resources. Preserve
+ignored evidence/data before [worktree cleanup](workflows/github-planning.md#worktree-cleanup).
+
 ## Phase And Quality Boundaries
 
 Requirements work permits bounded read-only discovery, not full acceptance.

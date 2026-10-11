@@ -12,6 +12,8 @@ sources:
     status: current
   - path: docs/provenance.md
     status: current
+  - path: .harness/workflows/wiki-update.md
+    status: current
 related:
   - architecture.agent-development-harness
 confidence: high
@@ -29,6 +31,8 @@ confidence: high
 - 用户确认的需求定义目标，代码及实际验证定义已实现行为；两者分别标记。
 - 本方法来自下游项目的实际使用：入口和索引随每次确认不断变长后，改为按任务读取、
   每条规则只在一个主题页维护。回流来源见[来源记录](../../docs/provenance.md)。
+- 日志分文件的规则经维护者于 2026-10-11 在 [Issue #2 的确认记录](../../docs/provenance.md#并发协作需求)
+  确认；当前维护步骤由知识更新工作流落实，验证证据留在对应 PR。
 - 下面的位置分工是模板的默认方案，不设字数限制；项目可按自己的目录调整并在本页记录。
 
 ## Contracts
@@ -57,7 +61,12 @@ confidence: high
    项目有人类文档导航时，新增、移动、删除面向人的文档或改变其用途须同步导航；
    文档类型不代替确认或实施状态，Issue 状态仍以在线任务为准。
 4. 只有 Agent 工作方式变化才修改根入口或 Harness；只有实际操作变化才修改 runbook。
-5. 在知识日志添加简短摘要及正文链接；保留此前确认和修订的历史，不把旧建议恢复为现行要求。
+5. 知识日志写入 `.project-wiki/log/`，一次变更一个文件，内容为简短摘要及所属主题链接。
+   文件名为 `YYYY-MM-DD-标识.md`；标识只用小写字母、数字和连字符，有对应 Issue 时以
+   `issue-N-` 开头并接简述，例如 `2026-10-11-issue-2-concurrent-work.md`。按文件名排序阅读。
+   Harness 变更同时在 `.harness/update-log/` 按同一格式一次变更一个文件。
+   原 `.project-wiki/log.md` 和 `.harness/update-log.md` 的已有条目原样冻结，不再追加；
+   保留此前确认和修订的历史，不把旧建议恢复为现行要求。
 6. 涉及正在交付的 Issue 时，遵循既有范围变更流程更新在线契约，不用 wiki 更新代替。
 7. 重组已有知识时，先记录原章节到新位置的映射，检查正文、来源、相对链接与引用。
    业务语义变化须另有用户依据，不能夹带在文档搬迁中。

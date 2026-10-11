@@ -138,6 +138,27 @@ unconfirmed issue cannot enter the claimable `status:planned` state.
    edits do not provide a true compare-and-swap, so the command cannot by itself
    prevent two sessions that read the same old state from racing.
 6. Use an `issue-N-short-description` branch from the current `main` baseline.
+   When another session on the same machine uses the same checkout, implementation
+   must use its own Git worktree; never switch branches in that session's checkout.
+   With no concurrent user of the checkout, a separate worktree is optional.
+   Place implementation worktrees beside the repository, named `REPO-issue-N`.
+   After verifying the current `main` baseline and that the branch/path is unused,
+   run from the repository checkout (replace `2` and the description as needed):
+
+   ```bash
+   issue_number=2
+   repo_root=$(git rev-parse --show-toplevel)
+   repo_name=$(basename "$repo_root")
+   worktree_path="$(dirname "$repo_root")/${repo_name}-issue-${issue_number}"
+   git worktree add "$worktree_path" -b "issue-${issue_number}-short-description" main
+   cd "$worktree_path"
+   ```
+
+   Creating and committing in this worktree leaves the original checkout's branch
+   and worktree state unchanged. Ignored local resources are not shared; follow
+   [tooling and runtime](../tooling-runtime.md#worktrees-and-local-resources).
+   Cleanup is mandatory at the lifecycle boundaries in
+   [Worktree Cleanup](#worktree-cleanup), including cancellation.
 7. Implement only the accepted scope and run the planned verification.
 8. A Draft PR remains implementation work and keeps `status:in-progress`.
    When the PR is marked Ready for review and is ready for a separate reviewer,
@@ -162,7 +183,12 @@ scripts/github/issue_status.sh set ISSUE in-progress --force \
 2. Keep a Draft or change-request remediation at `status:in-progress`; mark it
    Ready for review and restore `status:needs-review` only at the next formal
    independent-review handoff.
-3. Merge only after required pre-merge verification passes.
+3. Merge only after required pre-merge verification passes. After merging, verify
+   that the checks triggered by that exact push to `main` pass, using the merge
+   commit SHA rather than an earlier PR result. If they fail, revert that merge
+   or repair immediately; do not merge other PRs until `main` checks pass again.
+   This verifies the combined result after merge; it does not require rerunning
+   against the latest target before merge or introduce a merge queue.
 4. Because PRs use `Refs #N`, merge does not close the issue. If the contract
    requires merge-time or production verification, keep the issue open with
    `status:needs-review` until those checks pass.
@@ -380,6 +406,45 @@ Before marking an issue done:
 8. Close the issue as completed, set only `status:done`, and run the status
    check.
 9. Use `.harness/workflows/review-sync.md` for non-trivial handoff.
+10. The session executing completion must perform [Worktree Cleanup](#worktree-cleanup).
+    Implementation worktrees are removed only after the PR is merged and all
+    post-merge acceptance is complete. Review worktrees are removed after that
+    round's evidence is posted. Cancellation also requires cleanup by the session
+    handling cancellation; do not depend on the worktree creator still being present.
+
+### Worktree Cleanup
+
+Run `git worktree list` from a remaining checkout to locate sibling directories:
+implementation uses `REPO-issue-N`; reviews use `REPO-issue-N-review-ROUND`.
+Before removing a worktree, confirm no session is still using it. Inspect its
+tracked changes, untracked files and ignored local directories/files:
+
+```bash
+git worktree list
+git -C "$worktree_path" status --short
+git -C "$worktree_path" status --short --ignored
+```
+
+Inspect the ignored directories reported with `!!`. Move evidence or data cited
+by reports/runbooks to a retained location and update its references, or confirm
+it is no longer needed. Git refuses normal removal with uncommitted changes or
+untracked files, but ignored files alone do not prevent removal: they are deleted
+with the directory without a warning.
+
+After those checks, leave the target worktree and remove it from a remaining
+checkout:
+
+```bash
+cd "$repo_root"
+git worktree remove "$worktree_path"
+git worktree list
+```
+
+Use `git worktree remove`, not manual directory deletion. Do not add `--force`
+unless the contents have explicitly been confirmed disposable. If a directory
+has already been deleted manually, inspect `git worktree prune --dry-run --verbose`
+and then use `git worktree prune` to clear stale registrations before deleting
+its branch. A stale registration can otherwise keep that branch in use.
 
 ## Discoveries After Completion
 

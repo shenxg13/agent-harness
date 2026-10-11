@@ -22,7 +22,13 @@ Use this when a durable requirement, decision or knowledge structure changes.
 6. Update `.project-wiki/index.md` only for changed pages, paths or reading routes.
    When the project keeps a human reading guide, maintain it as defined in the
    [knowledge maintenance method](../../.project-wiki/methods/knowledge-maintenance.md).
-   Record a concise change summary and owning-topic link in `.project-wiki/log.md`.
+   Record a concise summary and owning-topic link in `.project-wiki/log/`, one
+   file per change. Use `YYYY-MM-DD-identifier.md`: the identifier contains only
+   lowercase letters, digits and hyphens; with an Issue, use `issue-N-short-description`.
+   Harness changes also get one entry per change with the same filename format in
+   `.harness/update-log/`. Read each directory in filename order. The existing
+   `.project-wiki/log.md` and `.harness/update-log.md` are frozen history; do not
+   append to them.
 7. For restructuring, map every old section to its destination and verify retained
    content, provenance and links. Run checks proportionate to the actual change.
 8. If a live Issue governs the work, synchronize its contract under the existing
