@@ -93,6 +93,7 @@ own `var/harness-tools`, which is lost when the worktree is cleaned up. To
 install once for every worktree, pass the path under the main checkout:
 
 ```bash
+main_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 scripts/quality/install_local_tools.sh "$main_root/var/harness-tools"
 ```
 
