@@ -36,6 +36,17 @@ const required = [
 for (const name of required) {
   if (!tracked.has(name) || !fs.existsSync(path.join(root, name))) fail(`missing required file: ${name}`);
 }
+// Log entries are flat, per-change Markdown files; frozen logs stay required above.
+for (const name of files) {
+  const logDir = ['.project-wiki/log/', '.harness/update-log/'].find(dir => name.startsWith(dir));
+  if (!logDir) continue;
+  const entry = name.slice(logDir.length);
+  const identifier = entry.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}-([a-z0-9-]+)\.md$/)?.[1];
+  if (!identifier || (identifier.startsWith('issue-') &&
+      !/^issue-[1-9][0-9]*-[a-z0-9-]+$/.test(identifier))) {
+    fail(`invalid log entry filename: ${name}; expected YYYY-MM-DD-identifier.md (lowercase letters, digits and hyphens; Issue entries: issue-N-description)`);
+  }
+}
 let sourceMarkers = [];
 if (sourceAudit) {
   try {

@@ -126,3 +126,10 @@
 同一次变更另外新增两项，来自该项目的使用经验，在本仓库首次实现，没有下游对应文件：
 项目检查入口 `scripts/quality/project_checks.sh` 和本地安装脚本
 `scripts/quality/install_local_tools.sh`。
+
+## 并发协作需求
+
+2026-10-11，维护者在本仓库 [Issue #2](https://github.com/shenxg13/agent-harness/issues/2)
+确认日志按变更分文件、实施与评审的独立工作树及清理规则、仓库外共享检查工具和合并后
+检查组合结果。确认范围由实时 Issue 正文维护，实施与验证由关联 PR 留存；这里仅记录
+来源，不复制任务正文或执行状态。此项为本仓库需求，非下游文件回流。

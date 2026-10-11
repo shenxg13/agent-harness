@@ -12,6 +12,12 @@ sources:
     status: current
   - path: scripts/README.md
     status: current
+  - path: .harness/workflows/github-planning.md
+    status: current
+  - path: .harness/tooling-runtime.md
+    status: current
+  - path: docs/provenance.md
+    status: current
 related:
   - decision.engineering-principles
   - method.knowledge-maintenance
@@ -30,11 +36,26 @@ confidence: high
 - 确认需求定义目标，当前源代码与验证结果定义已实现行为。
 - 接入 GitHub 后，Issue 正文定义任务契约，标签定义执行状态。
 - 本地初始化的已确认范围保存在初始化计划，结果保存在验证报告。
+- 并发协作规则经维护者于 2026-10-11 在 [Issue #2 的确认记录](../../docs/provenance.md#并发协作需求)
+  确认；下面记录当前工作流与文件名校验的契约，实际验收证据由对应 PR 保存。
 
 ## Contracts
 
 - 按任务读取相关知识，索引仅保留主题路由；业务需求完整保存在各自主题页。
 - 确认需求后更新所属正文并记录简短日志；仅导航或 Agent 工作方式变化才更新入口。
+  新知识日志写入 `.project-wiki/log/`，Harness 更新写入 `.harness/update-log/`，一次变更
+  一个文件；格式与职责见[知识维护方法](../methods/knowledge-maintenance.md)。原有两份日志
+  冻结保留，模板检查验证新条目文件名，历史文件仍是必需文件。
+- 并发使用同一检出时，实施必须在仓库同级的 `仓库名-issue-N` 工作树中进行；无并发时
+  可沿用当前检出。评审使用固定 head 的独立工作树或不改变检出的只读命令。
+  执行完成步骤的会话负责实施、评审及取消时的清理，并先检查被忽略文件，见
+  [交付流程](../../.harness/workflows/github-planning.md#worktree-cleanup)。
+- 工作树不共享被忽略的本地资源；仓库外的兼容检查工具可通过绝对 `PATH` 共用，
+  端口、数据库、数据目录的共享或独占方式由项目 runbook 声明，见
+  [运行时指南](../../.harness/tooling-runtime.md#worktrees-and-local-resources)。
+- 并发不消除契约或结构版本链的真实依赖，仍由 Issue 声明先后。合并后核对该次 `main`
+  推送的检查，失败时先回退或立即修复，检查恢复前不合并其他 PR；不要求合并前重跑最新
+  组合，不引入合并队列，也不改变固定评审面、轮次和阻断规则。
 - 知识搬迁保留正文、来源、边界和待定事项，具体流程见[知识维护方法](../methods/knowledge-maintenance.md)。
 - 本地质量入口默认离线；Issue、PR 测试用可控客户端模拟。
 - 本地安装由 `scripts/quality/install_local_tools.sh` 显式联网执行，在 Linux x86_64

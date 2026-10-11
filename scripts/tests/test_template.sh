@@ -25,6 +25,30 @@ expect_fail() {
     }
 }
 "$checker" --source-audit "$fixture" >/dev/null
+# Both log directories accept non-Issue and Issue entries and reject malformed names.
+for log_dir in .project-wiki/log .harness/update-log; do
+    mkdir -p "$fixture/$log_dir"
+    for entry in 2026-10-11-maintenance.md 2026-10-11-issue-23-fix.md; do
+        printf '# Log entry\n' >"$fixture/$log_dir/$entry"
+        git -C "$fixture" add -- "$log_dir/$entry"
+    done
+    "$checker" --source-audit "$fixture" >/dev/null
+    for entry in missing-date.md 2026-1-11-short-date.md 2026-10-11-Uppercase.md \
+        2026-10-11-under_score.md 2026-10-11-issue-two-fix.md \
+        2026-10-11-issue-2.md nested/2026-10-11-entry.md; do
+        mkdir -p "$(dirname -- "$fixture/$log_dir/$entry")"
+        printf '# Invalid log entry\n' >"$fixture/$log_dir/$entry"
+        git -C "$fixture" add -- "$log_dir/$entry"
+        expect_fail "invalid log entry filename: $log_dir/$entry"
+        git -C "$fixture" rm -q -f -- "$log_dir/$entry"
+    done
+done
+# Frozen logs remain required even when the entry directories are populated.
+for frozen_log in .project-wiki/log.md .harness/update-log.md; do
+    rm -- "$fixture/$frozen_log"
+    expect_fail "missing required file: $frozen_log"
+    cp -- "$repo_root/$frozen_log" "$fixture/$frozen_log"
+done
 rm -- "$fixture/.harness/workflows/large-change.md"
 expect_fail 'missing required file'
 cp -- "$repo_root/.harness/workflows/large-change.md" "$fixture/.harness/workflows/large-change.md"

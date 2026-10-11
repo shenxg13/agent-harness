@@ -1,3 +1,5 @@
+历史更新日志已冻结，以下已有条目原样保留，不再追加。新条目见 [update-log/](update-log/)，一次变更一个文件，按文件名排序阅读。
+
 # Harness Update Log
 
 | Date | Commit | Summary |
