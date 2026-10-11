@@ -143,6 +143,45 @@ scripts/github/review_convergence.sh RECORD.json
   has one fixed review surface, one evidence record, and one consolidated
   blocker ledger.
 
+### Remediation Scope And Observations
+
+After a `changes_requested` verdict, or a convergence adjudication authorizing
+batch repair, the delta up to the next handoff is limited to changes needed to
+satisfy open ledger exit conditions, plus necessary regressions and documentation
+sync caused by those changes. An observation may be included only through the
+Maintainer adoption below.
+
+The implementation owner posts a PR remediation record listing changed files
+under each `finding_id`. Every file in the repair delta must map to a ledger
+`finding_id` or an adopted `observation_id`, with the adopting Issue comment
+linked for each adopted observation.
+
+Before accepting the next handoff, the Reviewer compares the file list from
+the previous round's head to the new head with that mapping. An unmapped file
+means the handoff is not accepted and consumes no round. The implementation
+owner must remove the unrelated changes, or the Maintainer must adopt the
+observation under the rule below, before the handoff can be accepted. This
+file-level check does not replace review of the complete repair delta.
+
+Review evidence records non-blocking observations in a separate section, each
+with a stable `observation_id`, summary and evidence. Observations are not exit
+conditions and are outside the current PR by default. A finding that meets the
+existing blocker criteria must enter the ledger; it cannot be recorded as an
+observation.
+
+A Maintainer may adopt an observation into the current PR in a live Issue
+comment that states its `observation_id` and exit condition. The implementation
+owner may then address it during remediation. The next review records and
+verifies it as a ledger entry, filling all fields under the existing blocker
+criteria; an unmet adopted exit condition is a blocker. If addressing it would
+change the Issue scope or acceptance criteria, adoption is not available: use
+the existing [scope-change workflow](github-planning.md#scope-changes-and-blocking).
+
+After approval and before Issue completion, the Maintainer decides for each
+unadopted observation whether to open a follow-up Issue or take no action. The
+completion record lists each disposition as required by
+[Completion Rules](github-planning.md#completion-rules).
+
 ### Fixed Review Surface And Round Accounting
 
 R0 records this immutable tuple before R1 begins:
@@ -291,17 +330,38 @@ contract and non-waivable gates is routed to a mutually linked urgent Issue; it
 does not silently expand the current PR. A repository P0/P1 stop-release policy
 instead uses an explicit blocking Issue and exact unblock condition.
 
-Accepted risk requires an audit decision from a Maintainer/Risk Owner named in
-repository ownership configuration, or a person explicitly authorized by a
-Maintainer in the live Issue. With no such authorization, the finding remains a
-blocker. No Maintainer, Risk Owner, Reviewer, implementation Agent, or automated
-tool may waive a gate explicitly defined as non-waivable.
+Accepted risk requires an audit decision from a
+[Maintainer/Risk Owner](#maintainer-and-risk-owner), or a person explicitly
+authorized by a Maintainer in the live Issue. With no such authorization, the
+finding remains a blocker. No Maintainer, Risk Owner, Reviewer, implementation
+Agent, or automated tool may waive a gate explicitly defined as non-waivable.
+
+### Maintainer And Risk Owner
+
+Determine the Maintainer/Risk Owner for risk acceptance and convergence
+adjudication using these rules:
+
+1. Use the declaration in the project's confirmed operating-model decision.
+2. Without a confirmed declaration, if the repository belongs to an individual
+   account, that account's owner is both Maintainer and Risk Owner.
+3. Without a confirmed declaration, an organization-owned repository has no
+   default. Until the operating model declares the Maintainer/Risk Owner, no
+   one may accept risk or adjudicate; unresolved blocking findings remain
+   blockers.
+
+A Maintainer may explicitly authorize another person in the live Issue; that
+existing delegation remains valid. The risk-acceptance field
+`risk_authorization_evidence` and adjudication field `authorization_evidence`
+must identify the applicable rule above and its basis: the confirmed
+operating-model declaration or individual repository ownership. When authority
+is delegated, also link the explicit live Issue authorization. No separate
+ownership file or hard-coded username is required.
 
 ### Convergence Adjudication
 
 After three consumed rounds, freeze the current SHA tuple and complete ledger.
-A Maintainer/Risk Owner must record one decision with a stable
-`adjudication_id`:
+A [Maintainer/Risk Owner](#maintainer-and-risk-owner) must record one decision
+with a stable `adjudication_id`:
 
 1. `approve`: no blocker remains; normal merge gates still apply.
 2. `batch_repair_final_verification`: contract-bound blockers are fully bounded;
