@@ -52,7 +52,8 @@ These checkout rules do not change formal rounds or the fixed review surface.
    - merge does not by itself complete or close the Issue;
    - required post-merge verification remains open at `status:needs-review`;
    - after all current acceptance criteria pass, completed work is manually
-     closed as completed and then given only `status:done`;
+     closed as completed and then given `status:done` as its only status label,
+     preserving type and other ordinary labels;
    - canceled, rejected, and duplicate work is closed as not planned with no
      `status:*` label;
    - blocked work records `reason=...; unblock=...` before the label changes;

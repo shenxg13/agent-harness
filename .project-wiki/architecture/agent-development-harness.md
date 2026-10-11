@@ -34,7 +34,7 @@ confidence: high
 ## Source Of Truth
 
 - 确认需求定义目标，当前源代码与验证结果定义已实现行为。
-- 接入 GitHub 后，Issue 正文定义任务契约，标签定义执行状态。
+- 接入 GitHub 后，Issue 正文定义任务契约，`status:*` 标签定义执行状态，`type:*` 标签定义类型。
 - 本地初始化的已确认范围保存在初始化计划，结果保存在验证报告。
 - 并发协作规则经维护者于 2026-10-11 在 [Issue #2 的确认记录](../../docs/provenance.md#并发协作需求)
   确认；下面记录当前工作流与文件名校验的契约，实际验收证据由对应 PR 保存。
@@ -58,6 +58,11 @@ confidence: high
   组合，不引入合并队列，也不改变固定评审面、轮次和阻断规则。
 - 知识搬迁保留正文、来源、边界和待定事项，具体流程见[知识维护方法](../methods/knowledge-maintenance.md)。
 - 本地质量入口默认离线；Issue、PR 测试用可控客户端模拟。
+- Issue 按主要交付物选恰好一个类型，默认五类、产品边界及需求会话职责见
+  [Issue 类型](../../.harness/workflows/github-planning.md#issue-types)。类型规则经维护者于
+  2026-10-11 在 [Issue #3 的确认记录](../../docs/provenance.md#issue-类型需求) 确认；状态脚本
+  只在 planned 准入处检查任意 `type:` 前缀的标签数量，写入前拒绝缺少或重复类型，
+  不自动归类、不追溯其他状态，所有转换保留类型。验证证据由对应 PR 保存。
 - 本地安装由 `scripts/quality/install_local_tools.sh` 显式联网执行，在 Linux x86_64
   将固定工具安装到新目录，默认 `var/harness-tools`；检查入口不自动查找该目录，
   调用时临时设置 `PATH`。安装与工具边界见[工具手册](../../docs/runbooks/issue-pr-quality-tooling.md)。
