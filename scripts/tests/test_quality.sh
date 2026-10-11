@@ -132,7 +132,64 @@ expect_installer_refusal 'unknown option' --force
 expect_installer_refusal 'at most one target directory' \
     "$test_root/first" "$test_root/second"
 expect_installer_refusal 'at most one target directory' --help "$test_root/first"
+for suffix in . .. ./ ../ ./// ..///; do
+    expect_installer_refusal 'target must not end in . or ..' "$test_root/first/$suffix"
+done
 [[ ! -e $test_root/first && ! -e $test_root/second ]]
+
+# Simulate a target appearing at the last gate. Exercise the real publication
+# and cleanup while keeping downloads and package installation offline.
+publication_fixture="$test_root/publication"
+mkdir -p "$publication_fixture/scripts/quality" "$publication_fixture/bin"
+cp "$installer" "$repo_root/scripts/quality/tool-versions.env" \
+    "$publication_fixture/scripts/quality/"
+cat >"$publication_fixture/bin/noop" <<'EOF'
+#!/usr/bin/env bash
+if [[ ${0##*/} == sha256sum ]]; then cat >/dev/null; fi
+exit 0
+EOF
+chmod +x "$publication_fixture/bin/noop"
+for tool in curl tar sha256sum install npm; do
+    ln -s noop "$publication_fixture/bin/$tool"
+done
+cat >"$publication_fixture/scripts/quality/check.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $1 == --check-tools-only ]]
+case $HARNESS_TEST_TARGET_KIND in
+    empty) mkdir "$HARNESS_TEST_PUBLICATION_TARGET" ;;
+    directory)
+        mkdir "$HARNESS_TEST_PUBLICATION_TARGET"
+        printf '%s\n' 'preserve target' >"$HARNESS_TEST_PUBLICATION_TARGET/sentinel"
+        ;;
+    file) printf '%s\n' 'preserve target' >"$HARNESS_TEST_PUBLICATION_TARGET" ;;
+    symlink) ln -s absent "$HARNESS_TEST_PUBLICATION_TARGET" ;;
+esac
+EOF
+chmod +x "$publication_fixture/scripts/quality/check.sh"
+for kind in empty directory file symlink; do
+    publication_target="$publication_fixture/target-$kind"
+    if PATH="$publication_fixture/bin:$PATH" \
+        HARNESS_TEST_PUBLICATION_TARGET="$publication_target" \
+        HARNESS_TEST_TARGET_KIND="$kind" \
+        "$publication_fixture/scripts/quality/install_local_tools.sh" "$publication_target" \
+        >"$test_root/stdout" 2>"$test_root/stderr"; then
+        printf 'FAIL: installer published over an existing %s\n' "$kind" >&2
+        exit 1
+    fi
+    grep -Fq 'target appeared during installation' "$test_root/stderr"
+    case $kind in
+        empty) [[ -z $(ls -A "$publication_target") ]] ;;
+        directory)
+            [[ $(ls -A "$publication_target") == sentinel ]]
+            [[ $(cat "$publication_target/sentinel") == 'preserve target' ]]
+            ;;
+        file) [[ $(cat "$publication_target") == 'preserve target' ]] ;;
+        symlink) [[ $(readlink "$publication_target") == absent ]] ;;
+    esac
+    [[ -z $(find "$publication_fixture" -maxdepth 1 -name '.harness-tools.*' -print -quit) ]]
+done
+
 for digest in \
     "$SHELLCHECK_LINUX_X64_SHA256" "$SHFMT_LINUX_X64_SHA256" \
     "$NODE_LINUX_X64_SHA256"; do

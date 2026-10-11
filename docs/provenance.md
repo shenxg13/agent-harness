@@ -15,7 +15,7 @@
 下游项目按自己的来源调整该配置；普通完整性检查允许项目业务词汇与二进制资产。
 
 ```json
-{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "CNIPA", "trademark", "/home/sfmon", "127.0.0.1:7890", "TM_LAB"]}
+{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "sql-apm", "CNIPA", "trademark", "/home/sfmon", "127.0.0.1:7890", "TM_LAB"]}
 ```
 
 ## 继承文件

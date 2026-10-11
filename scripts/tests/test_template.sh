@@ -34,6 +34,9 @@ cp -- "$repo_root/README.md" "$fixture/README.md"
 printf '\n%s-%s\n' tm lab >>"$fixture/README.md"
 expect_fail 'source-specific residue'
 cp -- "$repo_root/README.md" "$fixture/README.md"
+printf '\n%s-%s\n' sql apm >>"$fixture/README.md"
+expect_fail 'source-specific residue'
+cp -- "$repo_root/README.md" "$fixture/README.md"
 printf '\n[escape](../../outside.md)\n' >>"$fixture/README.md"
 expect_fail 'reference escapes repository'
 cp -- "$repo_root/README.md" "$fixture/README.md"

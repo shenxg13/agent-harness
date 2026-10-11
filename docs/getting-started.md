@@ -15,7 +15,7 @@
 
 先按 [工具手册](runbooks/issue-pr-quality-tooling.md) 安装声明工具。
 Linux x86_64 可运行 `scripts/quality/install_local_tools.sh [DIR]` 安装固定版本的工具：
-默认目录为 `var/harness-tools`，也接受一个相对或绝对目录；目标已存在、未知选项或多于一个
+默认目录为 `var/harness-tools`，也接受一个相对或绝对目录；目标已存在、末段为 `.` 或 `..`、未知选项或多于一个
 参数时会在下载和写入前拒绝。安装在目标旁暂存，成功后才发布目标，失败时清理临时目录。
 脚本不改 `PATH`、系统目录或用户的 npm 缓存与全局前缀。使用默认安装位置时，每次检查临时
 设置 `PATH="$PWD/var/harness-tools/bin:$PATH"`；检查入口不会自动查找该目录。

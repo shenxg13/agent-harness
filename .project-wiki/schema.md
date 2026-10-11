@@ -84,7 +84,7 @@ or requirements. Do not alter original source bytes merely to add metadata. Reco
 - capture date
 - access status
 - processing status
-- original or lightly normalized content
+- whether the captured source was original or already normalized before capture
 
 Raw files are not authoritative until promoted into a structured entity page
 with source status and confidence.

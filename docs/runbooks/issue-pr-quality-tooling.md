@@ -35,9 +35,11 @@ PATH="$PWD/var/harness-tools/bin:$PATH" scripts/quality/check.sh --check-tools-o
 脚本从官方地址下载 ShellCheck、shfmt 和 Node.js，按工具合同记录的摘要核对，再用这份
 Node.js 安装固定版本的 npm 与 markdownlint-cli2，最后运行一次工具版本检查。默认目录是
 仓库内已被 Git 忽略的 `var/harness-tools`，也可以把相对或绝对目标目录作为唯一参数传入。
-目标已存在、未知选项或多于一个参数时，脚本在下载和写入前拒绝执行。下载和安装先在目标旁
+目标已存在、末段为 `.` 或 `..`、未知选项或多于一个参数时，脚本在下载和写入前拒绝执行。下载和安装先在目标旁
 的临时目录完成，全部成功后才出现目标目录；失败时不留下目标目录，临时目录也会清理。脚本不修改
 `PATH`、系统目录、用户的 npm 缓存或全局前缀，运行检查时按上面的写法临时加上 `bin` 目录。
+安装命令通过命令行参数固定 npm 缓存和前缀，覆盖用户导出的同名配置；安装与版本检查期间
+禁用 Node 编译缓存。若发布时目标已出现，脚本失败并清理自身暂存，保留已有目标。
 辅助工具为 curl、tar、xz、sha256sum 和 install。
 
 不使用脚本或在其他架构上，按以下方式手工安装。ShellCheck 从 [官方发行](https://github.com/koalaman/shellcheck/releases/tag/v0.10.0)

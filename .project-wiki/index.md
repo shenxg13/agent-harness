@@ -8,11 +8,13 @@ durable facts; runtime graphs are derived and disposable.
 
 ## Architecture
 
-- [Agent development harness](architecture/agent-development-harness.md)
+- [Agent development harness](architecture/agent-development-harness.md) — read
+  when changing harness structure, tool boundaries or project adoption contracts
 
 ## Decisions
 
-- [Engineering principles](decisions/engineering-principles.md)
+- [Engineering principles](decisions/engineering-principles.md) — read when
+  evaluating correctness, recovery, resource costs or control tradeoffs
 
 ## Methods
 

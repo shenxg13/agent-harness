@@ -33,8 +33,8 @@ passwords or credential files, or install tools merely to diagnose availability.
 The [tool runbook](../docs/runbooks/issue-pr-quality-tooling.md) owns installation.
 The Linux x86_64 local installer downloads from the network and stages tools
 beside its target, `var/harness-tools` by default. It accepts one relative or
-absolute directory, rejects an existing target, unknown options and extra
-arguments before writing, and cleans staging files on failure. Run it when
+absolute directory, rejects an existing target, a final `.` or `..` component,
+unknown options and extra arguments before writing, and cleans staging files on failure. Run it when
 installation is authorized, not to diagnose availability. It does not change
 `PATH`, system directories or the user's npm cache or global prefix; scope the
 tool-path override to the command:

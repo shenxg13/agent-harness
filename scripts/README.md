@@ -32,8 +32,8 @@ still owns semantic correctness and external-link validity.
 Installation is never part of the default read-only quality command. The CI
 provisioner requires a CI environment; local setup follows the tool runbook.
 The local installer verifies recorded digests, refuses an existing target and
-accepts at most one relative or absolute directory. Unknown options and extra
-arguments are rejected before downloads or writes. Installation is staged beside
+accepts at most one relative or absolute directory. A final `.` or `..` component,
+unknown options and extra arguments are rejected before downloads or writes. Installation is staged beside
 the target, published only after success, and cleaned on failure. It does not
 change `PATH`, system directories or the user's npm cache or global prefix;
 prefix the directory's `bin` for the commands that need it. The quality entrypoint
