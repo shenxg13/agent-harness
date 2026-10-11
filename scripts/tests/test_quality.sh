@@ -152,6 +152,15 @@ chmod +x "$publication_fixture/bin/noop"
 for tool in curl tar sha256sum install npm; do
     ln -s noop "$publication_fixture/bin/$tool"
 done
+# Exercise both GNU exit statuses for a skipped no-clobber move. The real mv
+# still owns the filesystem operation, so target-preservation checks remain real.
+real_mv=$(command -v mv)
+cat >"$publication_fixture/bin/mv" <<'EOF'
+#!/usr/bin/env bash
+"$HARNESS_TEST_REAL_MV" "$@"
+exit "$HARNESS_TEST_MOVE_STATUS"
+EOF
+chmod +x "$publication_fixture/bin/mv"
 cat >"$publication_fixture/scripts/quality/check.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -167,17 +176,23 @@ case $HARNESS_TEST_TARGET_KIND in
 esac
 EOF
 chmod +x "$publication_fixture/scripts/quality/check.sh"
-for kind in empty directory file symlink; do
-    publication_target="$publication_fixture/target-$kind"
+for scenario in empty:0 directory:0 file:0 symlink:0 empty:1 directory:1 file:1 symlink:1; do
+    kind=${scenario%:*}
+    move_status=${scenario#*:}
+    publication_target="$publication_fixture/target-$kind-$move_status"
     if PATH="$publication_fixture/bin:$PATH" \
         HARNESS_TEST_PUBLICATION_TARGET="$publication_target" \
         HARNESS_TEST_TARGET_KIND="$kind" \
+        HARNESS_TEST_REAL_MV="$real_mv" HARNESS_TEST_MOVE_STATUS="$move_status" \
         "$publication_fixture/scripts/quality/install_local_tools.sh" "$publication_target" \
         >"$test_root/stdout" 2>"$test_root/stderr"; then
         printf 'FAIL: installer published over an existing %s\n' "$kind" >&2
         exit 1
     fi
-    grep -Fq 'target appeared during installation' "$test_root/stderr"
+    grep -Fq 'unable to publish tools without replacing target' "$test_root/stderr" || {
+        cat "$test_root/stderr" >&2
+        exit 1
+    }
     case $kind in
         empty) [[ -z $(ls -A "$publication_target") ]] ;;
         directory)

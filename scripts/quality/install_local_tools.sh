@@ -83,8 +83,10 @@ PATH="$stage/tools/bin:$PATH" npm install --global \
 
 PATH="$stage/tools/bin:$PATH" "$script_dir/check.sh" --check-tools-only
 # Do not nest tools in or replace a target that appeared during installation.
-# GNU mv --no-clobber returns success on a skipped move, so check the source.
-mv --no-target-directory --no-clobber -- "$stage/tools" "$target"
-[[ ! -e $stage/tools ]] || die "target appeared during installation: $target"
+# GNU versions differ on the status for a skipped move; also check the source.
+if ! mv --no-target-directory --no-clobber -- "$stage/tools" "$target" ||
+    [[ -e $stage/tools ]]; then
+    die "unable to publish tools without replacing target: $target"
+fi
 printf 'installed pinned quality tools into %s\n' "$target"
 printf "run checks with: PATH=\"%s/bin:\$PATH\" scripts/quality/check.sh\n" "$target"
