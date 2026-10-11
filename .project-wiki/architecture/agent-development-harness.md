@@ -44,6 +44,11 @@ confidence: high
 ## Contracts
 
 - 按任务读取相关知识，索引仅保留主题路由；业务需求完整保存在各自主题页。
+- `CLAUDE.md` 只有一行 `@AGENTS.md`，Claude Code 启动时以导入方式把 `AGENTS.md` 与它一起
+  加载，不依赖 Agent 自行打开；入口规则只在 `AGENTS.md` 维护。`CODEX.md` 是保留的短路由，
+  Codex 直接读取 `AGENTS.md`。模板检查不解析导入，实际加载由对应 PR 的人工检查证明；
+  上下文压缩后是否重新展开未经验证。依据为 2026-10-11
+  [Issue #9 的确认记录](../../docs/provenance.md#入口加载需求)。
 - 确认需求后更新所属正文并记录简短日志；仅导航或 Agent 工作方式变化才更新入口。
   新知识日志写入 `.project-wiki/log/`，Harness 更新写入 `.harness/update-log/`，一次变更
   一个文件；格式与职责见[知识维护方法](../methods/knowledge-maintenance.md)。原有两份日志
