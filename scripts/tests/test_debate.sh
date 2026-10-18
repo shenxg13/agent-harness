@@ -297,16 +297,21 @@ git_history() {
         if grep -q implementation "$case_root/stdout"; then return 1; fi
         expect_rc 0 "$wrapper" show "$head:README.md"
         [[ $(cat "$case_root/stdout") == 'committed implementation' ]]
-        expect_rc 0 "$wrapper" blame -- README.md
-        grep -q fixture "$case_root/stdout"
-        if grep -q uncommitted "$case_root/stdout"; then return 1; fi
+        (
+            trap 'git -C "$main" restore -- README.md' EXIT
+            printf 'uncommitted main material\n' >"$main/README.md"
+            expect_rc 0 "$wrapper" blame -- README.md
+            grep -q fixture "$case_root/stdout"
+            if grep -q uncommitted "$case_root/stdout"; then exit 1; fi
+        )
+        [[ -z $(git -C "$main" status --porcelain) ]]
     done
 }
 git_rejects() {
     local head
     head=$(git -C "$main" rev-parse HEAD)
     local -a args
-    for spec in output contents abbreviation cwd absolute traversal metadata shortened option; do
+    for spec in output contents abbreviation cwd absolute traversal metadata shortened option short_sha symbolic_ref; do
         case $spec in
             output) args=(log --output=README.md) ;;
             contents) args=(blame --contents "$case_root/bait" -- README.md) ;;
@@ -317,6 +322,8 @@ git_rejects() {
             metadata) args=(blame -- .git/config) ;;
             shortened) args=(log --out=README.md) ;;
             option) args=(show --textconv HEAD:README.md) ;;
+            short_sha) args=(show "${head:0:12}:README.md") ;;
+            symbolic_ref) args=(show HEAD:README.md) ;;
         esac
         expect_rc 2 "$main/scripts/debate/git-read.sh" "${args[@]}"
     done
@@ -361,8 +368,16 @@ assembly_validation() {
             grep -q 绝对路径 "$case_root/stdout"
             grep -Fq /Users/example/local.txt "$d/record.md"
             ;;
-        same) expect_rc 2 assemble codex codex ;;
-        unknown) expect_rc 2 assemble other codex ;;
+        same)
+            printf '已确认的记录正文\n' >"$d/record-body.md"
+            expect_rc 2 assemble codex codex
+            grep -Fq 'A 与 B 不能相同' "$case_root/stderr"
+            ;;
+        unknown)
+            printf '已确认的记录正文\n' >"$d/record-body.md"
+            expect_rc 2 assemble other codex
+            grep -Fq '参与方须为 claude 或 codex' "$case_root/stderr"
+            ;;
     esac
 }
 snapshot() {
