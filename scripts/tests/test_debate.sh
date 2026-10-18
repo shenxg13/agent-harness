@@ -9,7 +9,7 @@ passed=0 failed=0
 fixture() {
     case_root=$(mktemp -d "$test_root/case.XXXXXX")
     main=$case_root/main
-    mkdir -p "$main/scripts" "$case_root/bin" "$case_root/home"
+    mkdir -p "$main/scripts" "$case_root/bin" "$case_root/mock-home"
     cp -R "$repo_root/scripts/debate" "$main/scripts/"
     printf 'var/\n.env\n' >"$main/.gitignore"
     printf 'fixture\n' >"$main/README.md"
@@ -53,7 +53,7 @@ CLI
     chmod +x "$case_root/bin/fake-cli"
     trace=$case_root/trace.json
     # Only fixture HOME and explicitly injected fake CLIs enter the child.
-    run_env=(env -i PATH=/usr/bin:/bin HOME="$case_root/home" TRACE="$trace"
+    run_env=(env -i PATH=/usr/bin:/bin HOME="$case_root/mock-home" TRACE="$trace"
         CODEX_BIN="$case_root/bin/fake-cli" CLAUDE_BIN="$case_root/bin/fake-cli")
     runner=$main/scripts/debate/run-b.sh
 }
@@ -134,7 +134,12 @@ models() {
     expect_rc 0 run_b "$who" "$step"
     if [[ $step == smoke ]]; then
         args_match '.args | any(. == "smoke-'"$who"'")'
-        args_match '.args | any(contains("low"))'
+        if [[ $who == claude ]]; then
+            # shellcheck disable=SC2016 # jq variables, not Shell expansion.
+            args_match '.args | index("--effort") as $i | $i != null and .[$i+1] == "low"'
+        else
+            args_match '.args | any(. == "model_reasoning_effort=\"low\"")'
+        fi
     else
         args_match '.args | any(. == "project-'"$who"'")'
         args_match '.args | all(contains("smoke-") | not)'
@@ -248,7 +253,7 @@ discovery() {
     else
         vendor=openai.chatgpt suffix=bin/linux-x86_64/codex
     fi
-    run_env=(env -i PATH="$case_root/bin:/usr/bin:/bin" HOME="$case_root/home" TRACE="$trace")
+    run_env=(env -i PATH="$case_root/bin:/usr/bin:/bin" HOME="$case_root/mock-home" TRACE="$trace")
     # A PATH candidate must not override either extension root.
     cp "$case_root/bin/fake-cli" "$case_root/bin/$who"
     expected=$case_root/bin/$who
@@ -256,7 +261,7 @@ discovery() {
         for extension in .vscode .vscode-server; do
             local version=1.9
             [[ $extension != "$layout" ]] || version=1.10
-            local dest=$case_root/home/$extension/extensions/$vendor-$version-linux-x64/$suffix
+            local dest=$case_root/mock-home/$extension/extensions/$vendor-$version-linux-x64/$suffix
             mkdir -p "${dest%/*}"
             cp "$case_root/bin/fake-cli" "$dest"
             if [[ $version == 1.10 ]]; then expected=$dest; fi

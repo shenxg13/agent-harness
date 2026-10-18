@@ -12,9 +12,11 @@
 
 仅在显式执行 `scripts/quality/check_template.sh --source-audit` 时应用以下来源标识。
 下游项目按自己的来源调整该配置；普通完整性检查允许项目业务词汇与二进制资产。
+按 Issue #15 经维护者确认的 D.7，历史本机目录继续脱敏；Linux 主目录使用不含用户名的
+通用前缀审计，避免公开个人路径，同时保留对该类路径残留的拦截。其他来源标识保持不变。
 
 ```json
-{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "sql-apm", "CNIPA", "trademark", "127.0.0.1:7890", "TM_LAB"]}
+{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "sql-apm", "CNIPA", "trademark", "/home/", "127.0.0.1:7890", "TM_LAB"]}
 ```
 
 ## 继承文件
