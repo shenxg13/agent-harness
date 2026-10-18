@@ -27,6 +27,7 @@ case ${0##*/} in
     git) printf '%s\n' 'git version 2.52.0' ;;
     gh) printf '%s\n' 'gh version 2.97.0' ;;
     jq) printf '%s\n' 'jq-1.6' ;;
+    flock) printf '%s\n' 'flock from util-linux 2.37.4' ;;
     base64) printf '%s\n' 'base64 (GNU coreutils) 8.32' ;;
     shellcheck) printf '%s\n' 'ShellCheck' 'version: 0.10.0' ;;
     shfmt) printf '%s\n' 'v3.13.1' ;;
@@ -38,7 +39,7 @@ esac
 EOF
 chmod +x "$test_root/fake-tool"
 
-tools=(bash git jq base64 shellcheck shfmt node npm markdownlint-cli2)
+tools=(bash git jq base64 flock shellcheck shfmt node npm markdownlint-cli2)
 for tool in "${tools[@]}"; do
     cp "$test_root/fake-tool" "$fake_bin/$tool"
 done
@@ -72,7 +73,7 @@ grep -Fq 'injected quality failure after tool check' "$test_root/stderr" || {
     exit 1
 }
 
-for wrong in bash shfmt node; do
+for wrong in bash shfmt node flock; do
     if PATH=$fake_bin HARNESS_TEST_WRONG_TOOL=$wrong \
         /usr/bin/bash "$command_under_test" --check-tools-only \
         >"$test_root/stdout" 2>"$test_root/stderr"; then
@@ -248,7 +249,7 @@ done
 runbook="$repo_root/docs/runbooks/issue-pr-quality-tooling.md"
 for version in \
     "$BASH_MIN_VERSION" "$GIT_MIN_VERSION" "$GH_MIN_VERSION" \
-    "$JQ_MIN_VERSION" "$COREUTILS_MIN_VERSION" "$SHELLCHECK_VERSION" \
+    "$JQ_MIN_VERSION" "$COREUTILS_MIN_VERSION" "$FLOCK_MIN_VERSION" "$SHELLCHECK_VERSION" \
     "$SHFMT_VERSION" "$NODE_VERSION" "$NPM_VERSION" \
     "$MARKDOWNLINT_CLI2_VERSION"; do
     grep -Fq "$version" "$runbook" || {

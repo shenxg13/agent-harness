@@ -59,7 +59,7 @@ if [[ $check_tools_only == true && (-n $pr || -n $repo) ]]; then
 fi
 
 required_tools=(
-    bash git jq base64 shellcheck shfmt node npm markdownlint-cli2
+    bash git jq base64 flock shellcheck shfmt node npm markdownlint-cli2
 )
 [[ -z $pr ]] || required_tools+=(gh)
 missing_tools=()
@@ -130,6 +130,8 @@ base64_output=$(base64 --version)
 [[ $base64_output == *'GNU coreutils'* ]] || die 'GNU base64 is required'
 extract_version "$base64_output"
 require_min_version 'GNU base64' "$parsed_version" "$COREUTILS_MIN_VERSION"
+extract_version "$(flock --version)"
+require_min_version flock "$parsed_version" "$FLOCK_MIN_VERSION"
 extract_version "$(shellcheck --version)"
 require_exact_version ShellCheck "$parsed_version" "$SHELLCHECK_VERSION"
 extract_version "$(shfmt --version)"
@@ -176,6 +178,7 @@ scripts/tests/test_issue_status.sh
 scripts/tests/test_review_convergence.sh
 scripts/tests/test_quality.sh
 scripts/tests/test_template.sh
+scripts/tests/test_debate.sh
 
 if [[ -n $pr ]]; then
     pr_args=()

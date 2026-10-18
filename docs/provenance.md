@@ -5,7 +5,6 @@
 - 来源仓库：`sologovision/tm-lab`。
 - 来源提交：`4ce838031aef3881005c01562d6ee5c96b85b551`。
 - 来源链接：[固定提交](https://github.com/sologovision/tm-lab/commit/4ce838031aef3881005c01562d6ee5c96b85b551)
-- 原本地工作目录：`/home/sfmon/code/tm-lab`，仅作来源标识，不是运行依赖。
 - 新仓库：`shenxg13/agent-harness`，用户确认公开发布，首次不添加 LICENSE。
 - 采用全新 Git 历史；来源仓库的提交、Issue、PR 和业务状态不迁移为新仓库状态。
 
@@ -13,9 +12,11 @@
 
 仅在显式执行 `scripts/quality/check_template.sh --source-audit` 时应用以下来源标识。
 下游项目按自己的来源调整该配置；普通完整性检查允许项目业务词汇与二进制资产。
+按 Issue #15 经维护者确认的 D.7，历史本机目录继续脱敏；Linux 主目录使用不含用户名的
+通用前缀审计，避免公开个人路径，同时保留对该类路径残留的拦截。其他来源标识保持不变。
 
 ```json
-{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "sql-apm", "CNIPA", "trademark", "/home/sfmon", "127.0.0.1:7890", "TM_LAB"]}
+{"source_markers": ["tm-lab", "tm_lab", "tm-agent", "sologovision", "shenxg13", "sql-apm", "CNIPA", "trademark", "/home/", "127.0.0.1:7890", "TM_LAB"]}
 ```
 
 ## 继承文件
@@ -98,7 +99,7 @@
 `.harness/workflows/search-weak-word-review.md` 属于业务工作流，不纳入通用模板。
 原 `.env.example` 和仅服务业务证据字节保护的 `.gitattributes` 不提取。
 
-只有本来源记录允许保留来源仓库名、业务标识和历史绝对路径。
+只有本来源记录允许保留来源仓库名、业务标识（私有来源除外）。
 这些标识用于追溯，不提供运行配置或跨仓库同步。
 
 ## 首次发布读回
@@ -171,3 +172,27 @@
 确认让工作树安装示例在同一代码块中给 `main_root` 赋值，使示例可单独复制；并确认沿用来源
 记录方式，由 Harness 更新条目链接本记录。确认范围由实时 Issue 正文维护，实施与验证由
 关联 PR 留存；此处仅记录来源，不复制任务正文或执行状态。
+
+## 2026-10-18：可选双模型决策审查
+
+来源：私有下游仓库 `a32b7608777023a4f4c401e9fdd6b6746fa894e2`。
+该来源从模板 `c8f26d983500e95a8c0fc4ce49f6c763f9d19cb2` 采用，本次按已合并提交单向取回。
+来源标识只临时用于本地审计，不加入长期配置；公开来源记录不保存私有名称、链接、领域词或本机路径。
+确认依据为本仓库 [Issue #15](https://github.com/shenxg13/agent-harness/issues/15)，包括记录模板
+最小通用化的确认；实际验证证据由关联 PR 保存。
+
+| 内容 | 处理 |
+| --- | --- |
+| 通用 decision-review 工作流 | 保留分类、阶段、确认、运行边界、L1/L2、发布及已知坑；项目声明取代专属规则；取数改为预算规则与项目实现合同 |
+| common.sh | 保留主检出解析与跨扩展根按版本选择，增加显式路径与 PATH 后备 |
+| run-b.sh、config.env | 模型、档位与凭据路径移入项目所有配置；保持原启动、日志及失败边界 |
+| git-read.sh、snapshot-issue.sh | 原样取回 |
+| assemble-record.sh | 保留顺序与校验，用 Bash、jq、grep 取代额外运行时 |
+| brief、prompt-review-b、prompt-draft-b | 去掉项目规则和报告引用，使用项目规则占位符 |
+| prompt-check-b、prompt-followup-b | 原样取回 |
+| record-body | 最小通用化用户事项、相持规则和领域措辞，保留结构 |
+| 下游测试 | 以覆盖面为对照重写 Shell 回归，假 CLI／gh，全程离线；新增配置与 PATH 断言 |
+| 项目取数实现及其测试、项目 method 页、成本和试点记录 | 不取回；模板 fetch.sh 仅拒绝运行 |
+| 文档、工具合同、必需文件清单与更新日志 | 按模板边界新增或同步；登记 flock；检查入口不调用真实模型 |
+
+采用时保留项目的配置和取数入口；配置文件不自动跟随模板默认值。下游何时采用由其自己的任务决定。

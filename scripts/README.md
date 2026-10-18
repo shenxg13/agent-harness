@@ -2,6 +2,11 @@
 
 | Command | Purpose | Network |
 | --- | --- | --- |
+| `scripts/debate/run-b.sh` | Run one authorized decision-review step using project configuration and audit logs | Model/search services |
+| `scripts/debate/git-read.sh` | Read main-checkout Git history through an argument allowlist | None |
+| `scripts/debate/fetch.sh` | Project-owned evidence entry; template refuses with exit code 2 | None in template; project declares replacement |
+| `scripts/debate/assemble-record.sh` | Assemble and check a decision record using Bash, jq and grep | None |
+| `scripts/debate/snapshot-issue.sh` | Snapshot Issue body/comments with hashes; explicit OWNER/REPO | GitHub |
 | `scripts/quality/check.sh` | Tools, Shell, Markdown, template integrity and offline regressions | None |
 | `scripts/quality/check.sh --check-tools-only` | Required local tool versions | None |
 | `scripts/quality/check.sh --pr PR --repo OWNER/REPO` | Local checks plus live PR contract | GitHub |
@@ -20,8 +25,10 @@ The quality entrypoint invokes these tests once:
 - `scripts/tests/test_review_convergence.sh`
 - `scripts/tests/test_quality.sh`
 - `scripts/tests/test_template.sh`
+- `scripts/tests/test_debate.sh`
 
-Tests use disposable files and mocked GitHub clients. The template checker uses
+Tests use disposable files, mocked GitHub clients and fake model CLIs. They never
+call real models or read real model credentials. The template checker uses
 its private Node.js implementation `scripts/quality/check_template.mjs`.
 It checks local Markdown links and concrete repository path references outside
 code fences, active wiki owners/source paths, necessary files and the CI entrypoint. The explicit `--source-audit` option
@@ -50,3 +57,11 @@ does not automatically search the default `var/harness-tools` directory.
 The quality entrypoint never runs `scripts/quality/project_checks.sh`. A project
 puts its own regression commands there, CI runs it as a separate step, and the
 file stays with the project when it adopts a harness update.
+
+Decision review is optional. Its [workflow](../.harness/workflows/decision-review.md)
+owns authorization and tool boundaries. The project-owned `scripts/debate/config.env`
+sets models, effort and credential paths; adopting updates preserves that file and
+`scripts/debate/fetch.sh`. CLI discovery uses explicit `CLAUDE_BIN` / `CODEX_BIN`,
+then the newest extension across both VS Code roots, then `PATH`. Configuration
+errors refuse before CLI/log creation. Model environment overrides apply only to
+`smoke`; `check.sh` exercises this with fake CLIs and requires util-linux `flock`.

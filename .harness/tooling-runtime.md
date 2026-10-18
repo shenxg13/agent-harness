@@ -13,8 +13,10 @@
 7. Preserve the original failure and classify it before retrying.
 
 Never execute or `source` a machine-local `.env` or an example environment file.
-A tracked, reviewed tool-version declaration is Shell configuration owned by the
-repository and is intentionally sourced by quality scripts. Do not print tokens,
+Tracked, reviewed `scripts/quality/tool-versions.env` and project-owned
+`scripts/debate/config.env` are repository Shell configuration, intentionally
+sourced by their respective scripts. The latter contains model/effort values and
+relative credential paths, never credential values; adopting updates preserves it. Do not print tokens,
 passwords or credential files, or install tools merely to diagnose availability.
 
 ## Canonical Commands
@@ -28,6 +30,11 @@ passwords or credential files, or install tools merely to diagnose availability.
 | Template files and references | `scripts/quality/check_template.sh` |
 | Issue lifecycle, after GitHub connection | `scripts/github/issue_status.sh` |
 | Live PR contract | `scripts/github/pr_contract.sh` |
+| Optional authorized model decision review | `scripts/debate/run-b.sh` |
+| Read main-checkout Git history | `scripts/debate/git-read.sh` |
+| Project-owned evidence entry (template refuses) | `scripts/debate/fetch.sh` |
+| Assemble decision record | `scripts/debate/assemble-record.sh` |
+| Snapshot Issue with explicit repository | `scripts/debate/snapshot-issue.sh` |
 | Local review JSON structure | `scripts/github/review_convergence.sh RECORD.json` |
 
 The [tool runbook](../docs/runbooks/issue-pr-quality-tooling.md) owns installation.
