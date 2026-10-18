@@ -9,6 +9,7 @@
 | Bash | 最低 5.1.0 | Shell 入口 |
 | Git | 最低 2.39.0 | 枚举文件与版本控制 |
 | jq | 最低 1.6.0 | JSON 与流程校验 |
+| flock（util-linux） | 最低 2.36.0 | 决策审查启动锁与离线并发回归 |
 | GNU coreutils | 最低 8.32.0 | base64 和基础文件工具 |
 | ShellCheck | 固定 0.10.0 | Shell 静态检查 |
 | shfmt | 固定 3.13.1 | Shell 格式检查 |
@@ -22,7 +23,7 @@
 
 ## 本地安装
 
-Bash、Git、jq 和 coreutils 从所用 Linux 发行版的受信任软件源安装。
+Bash、Git、jq、util-linux（flock）和 coreutils 从所用 Linux 发行版的受信任软件源安装。
 版本须满足上述下限，使用 `command -v` 和工具的版本命令核对。
 
 Linux x86_64 上，五个固定版本的工具可以用安装脚本一次装好；安装前应取得相应授权：
@@ -86,3 +87,7 @@ scripts/quality/check.sh
 
 缺少工具或版本不符会明确失败。先核对来源、版本与 PATH；不得降低门禁或把
 不可运行检查描述为成功。缺失 GitHub 登录只影响真实远程操作。
+
+`--check-tools-only` 也检查 `flock` 存在及版本，缺失会明确报错。真实 Claude／Codex CLI
+不是通用质量入口的依赖；决策审查离线回归只用假 CLI。真实 CLI 的安装、项目配置与授权
+见[可选能力启用说明](../getting-started.md#可选启用双模型决策审查)。

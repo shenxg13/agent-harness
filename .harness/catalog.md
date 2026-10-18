@@ -8,6 +8,7 @@
 | Small local change | [Small change](workflows/small-change.md) | Relevant wiki entity |
 | Large or cross-domain change | [Large change](workflows/large-change.md) | Architecture, contracts and decisions |
 | Requirements, Issues or PR delivery after connection | [GitHub planning](workflows/github-planning.md) | Live contract and accepted project knowledge |
+| Difficult decision (optional, authorized model calls) | [Decision review](workflows/decision-review.md) | [Project declarations](workflows/decision-review.md#项目声明) |
 | Review or handoff | [Review](workflows/review-sync.md), [knowledge sync](workflows/knowledge-sync.md) | Affected entities |
 | Wiki maintenance or knowledge reorganization | [Wiki update](workflows/wiki-update.md), [knowledge sync](workflows/knowledge-sync.md) | [Maintenance method](../.project-wiki/methods/knowledge-maintenance.md); [schema](../.project-wiki/schema.md) for entity structure |
 | Adopt a harness update or return a downstream improvement | [Updating](../docs/updating.md) | [Provenance](../docs/provenance.md) |

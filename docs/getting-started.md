@@ -36,6 +36,27 @@ git diff --cached --check
 `scripts/quality/project_checks.sh`，CI 会在通用入口之后单独调用它；通用入口不调用它，
 始终能独立验证 harness。
 
+## 可选：启用双模型决策审查
+
+仅困难决策且获得本场授权时使用[工作流](../.harness/workflows/decision-review.md)。不用此能力的项目
+无需安装模型 CLI；通用检查只调用假 CLI，不需要模型凭据。
+
+1. 在 Linux／WSL 安装 Claude 和 Codex CLI，并按当前会话政策授权联网。启动脚本先用
+   `CLAUDE_BIN`／`CODEX_BIN`，否则合并 `~/.vscode-server/extensions` 与 `~/.vscode/extensions`
+   的候选按扩展版本选最新，最后查 `PATH`；找不到则拒绝。
+2. 核对项目所有的 `scripts/debate/config.env`：Claude 默认 `claude-opus-5-5`、Codex 默认
+   `gpt-6-astra`，档位均为 `xhigh`，Claude 禁止 Read 的凭据相对路径默认为 `.env`，可列多个。
+   配置缺失、任一模型或档位为空、路径为空、为绝对路径或含 `..` 会在调用 CLI 和写日志前拒绝。
+   正式步骤只用配置值；四个模型／档位环境变量只用于 `smoke`，配置文件不自动跟随模板默认值。
+3. 在项目自己的 method 页写[项目声明](../.harness/workflows/decision-review.md#项目声明)，
+   包括授权分工、相持规则、数据与材料边界；未声明时需要判断的事项和分歧交维护者决定。
+4. 需要取数时，按工作流合同替换项目所有的 `scripts/debate/fetch.sh`。模板版只以退出码 2
+   拒绝，不读预算、不联网、不写文件；仅有预算文件时启动脚本才开放取数入口。
+5. 主检出保持 `main` 且干净，在其忽略目录 `var/debates/` 下准备场次。按工作流确认后运行；
+   以 `.rc` 为结束标志，非零退出或没有输出时保留证据，让用户决定，不自动重跑。
+
+默认档位成本较高；安装方式或 CLI 版本改变时应另行授权冒烟，离线参数回归不能替代真实工具验证。
+
 ## 接入 GitHub
 
 先确定 owner、仓库名、可见性、许可证安排与发布范围，再创建或关联远程并推送。

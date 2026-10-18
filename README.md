@@ -30,6 +30,7 @@ Linux x86_64 可用 `scripts/quality/install_local_tools.sh` 把固定工具装�
 | `.harness/` | 任务路由、流程、规则和交接 |
 | `.project-wiki/` | 有来源的持久知识与实体模板 |
 | `.github/` | 需求、PR、评审模板与质量 CI |
+| `scripts/debate/` | 可选的双模型决策审查：项目配置、启动、只读历史入口、快照及记录模板 |
 | `scripts/github/` | 状态机、PR 契约与评审证据校验 |
 | `scripts/quality/` | 工具合同与本地安装、离线质量、模板检查及项目检查入口 |
 | `scripts/tests/` | 流程与质量入口回归 |

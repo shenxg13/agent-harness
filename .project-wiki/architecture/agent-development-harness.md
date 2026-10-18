@@ -6,7 +6,7 @@ owners:
   - AGENTS.md
   - .harness/index.md
   - scripts/quality/check.sh
-updated: 2026-10-11
+updated: 2026-10-18
 sources:
   - path: .harness/plans/initial-extraction.md
     status: current
@@ -17,6 +17,10 @@ sources:
   - path: .harness/workflows/review-sync.md
     status: current
   - path: .harness/tooling-runtime.md
+    status: current
+  - path: .harness/workflows/decision-review.md
+    status: current
+  - path: scripts/debate/run-b.sh
     status: current
   - path: docs/provenance.md
     status: current
@@ -67,6 +71,13 @@ confidence: high
   组合，不引入合并队列，也不改变固定评审面、轮次和阻断规则。
 - 知识搬迁保留正文、来源、边界和待定事项，具体流程见[知识维护方法](../methods/knowledge-maintenance.md)。
 - 本地质量入口默认离线；Issue、PR 测试用可控客户端模拟。
+- [双模型决策审查](../../.harness/workflows/decision-review.md)是可选能力，执行会话为 A，
+  另一方为 B，默认 Claude 与 Codex，仅支持这两种 CLI。项目声明授权分工、相持规则及数据材料边界；
+  未声明时需要判断的事项和分歧交维护者决定。模型、档位和凭据相对路径由项目所有的
+  `scripts/debate/config.env` 声明，配置文件不自动跟随模板默认值；项目所有的
+  `scripts/debate/fetch.sh` 在模板中直接拒绝，启用时须实现工作流合同。
+  `scripts/quality/check.sh` 只用假 CLI 回归，不调用真实模型、不读取真实凭据；真实冒烟须单独授权。
+  启动路径、配置校验、沙箱和指令约束的限度由工作流维护，离线通过不证明实际 CLI 隔离。
 - Issue 按主要交付物选恰好一个类型，默认五类、产品边界及需求会话职责见
   [Issue 类型](../../.harness/workflows/github-planning.md#issue-types)。类型规则经维护者于
   2026-10-11 在 [Issue #3 的确认记录](../../docs/provenance.md#issue-类型需求) 确认；状态脚本
@@ -98,7 +109,7 @@ confidence: high
 
 - 把模拟 GitHub 或本地自检描述为真实远程交付或独立评审。
 - 将业务运行时加入通用质量入口，破坏独立运行能力。
-- 更新模板时覆盖下游项目自己的运行模型、知识与业务检查入口。
+- 更新模板时覆盖下游项目自己的运行模型、知识、业务检查入口或决策审查配置与取数入口。
 
 ## Update Rules
 
