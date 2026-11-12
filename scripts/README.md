@@ -64,8 +64,11 @@ sets models, effort and credential paths; adopting updates preserves that file a
 `scripts/debate/fetch.sh`. CLI discovery uses explicit `CLAUDE_BIN` / `CODEX_BIN`, then desktop app CLIs,
 then the newest extension across both VS Code roots, then `PATH`. Desktop app
 candidates are ranked by actual CLI version, with a stable path tie-break;
-Claude's current `CLAUDE_CODE_EXECPATH` takes precedence and Codex app discovery
-requires WSL Windows interop. The startup log records source, version and path.
+Claude's current `CLAUDE_CODE_EXECPATH` takes precedence only when
+`CLAUDE_CODE_ENTRYPOINT` is `claude-desktop` or `claude-desktop-3p`. An executable
+desktop EXECPATH with an unreadable version fails before logging, without fallback.
+Other sessions ignore EXECPATH; when it is not adopted, discovery scans `ccd-cli`.
+Codex app discovery requires WSL Windows interop. The startup log records source, version and path.
 Required help flags are checked before model execution or log creation.
 The workflow defines the shared A-session environment removal list, including
 custom configuration-directory overrides. Only `DEBATE_SMOKE_CLAUDE_MODEL`,

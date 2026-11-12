@@ -78,6 +78,8 @@ confidence: high
   `scripts/debate/fetch.sh` 在模板中直接拒绝，启用时须实现工作流合同。
   `scripts/quality/check.sh` 只用假 CLI 回归，不调用真实模型、不读取真实凭据；真实冒烟须单独授权。
   CLI 选择按显式覆盖、桌面 app、VS Code 扩展、PATH 分层，版本与路径记入本地日志；
+  `CLAUDE_CODE_EXECPATH` 仅在工作流定义的两种桌面入口下优先采用，非桌面会话忽略它，
+  采用后版本不可读则拒绝；依据 2026-11-12 Issue #17 的范围变更确认，审计证据由交付 PR 保存。
   B 在帮助检查前清除 A 的 app 环境，smoke 覆盖只认 `DEBATE_SMOKE_*`，旧名直接废弃。
   启动路径、配置校验、清除名单、沙箱和指令约束的限度由工作流维护，离线通过不证明实际 CLI 隔离
   或默认凭据可用；此变更依据 2026-11-12 Issue #17 的已确认契约，实机证据由交付 PR 保存。

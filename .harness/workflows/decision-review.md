@@ -99,8 +99,10 @@ CLI 发现支持 Linux／WSL x86_64，不支持 macOS 或原生 Windows。按下
 前一层有可用 CLI 就不再探测后一层，即使后一层版本更高：
 
 1. 显式 `CLAUDE_BIN`／`CODEX_BIN`：只检查该文件，不探测其他来源；覆盖无效则拒绝启动。
-2. 桌面 app：Claude 优先采用存在且可执行的 `CLAUDE_CODE_EXECPATH`，不探测其他 app 版本；
-   否则在 `~/.claude/remote/ccd-cli/*` 中选择。Codex 只在 WSL 中探测，通过 Windows 互操作
+2. 桌面 app：仅当 `CLAUDE_CODE_ENTRYPOINT` 为 `claude-desktop` 或 `claude-desktop-3p` 时，
+   Claude 优先采用存在且可执行的 `CLAUDE_CODE_EXECPATH`，不探测其他来源；它的版本无法读取时
+   退出 2、不写日志，不回退扫描。该变量也会出现在非桌面 Claude 会话中，此时忽略它。
+   没有采用 EXECPATH 时，在 `~/.claude/remote/ccd-cli/*` 中选择。Codex 只在 WSL 中探测，通过 Windows 互操作
    `cmd.exe /d /c 'echo %USERPROFILE%'` 取得用户目录，再经 `wslpath -u` 转成 Linux 路径，
    从该目录的 `.codex/bin/wsl/*/codex` 中选择。缺少互操作工具或获取目录失败时跳过此层。
    app 目录候选运行 `--version`，忽略不可执行、版本查询失败或版本不可解析的文件，

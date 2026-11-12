@@ -64,7 +64,9 @@ find_cli() {
     fi
     case $command_name in
         claude)
-            if [[ -f ${CLAUDE_CODE_EXECPATH:-} && -x ${CLAUDE_CODE_EXECPATH:-} ]]; then
+            # Every Claude CLI may export EXECPATH; only desktop entrypoints identify the app.
+            if [[ (${CLAUDE_CODE_ENTRYPOINT:-} == claude-desktop || ${CLAUDE_CODE_ENTRYPOINT:-} == claude-desktop-3p) &&
+                -f ${CLAUDE_CODE_EXECPATH:-} && -x ${CLAUDE_CODE_EXECPATH:-} ]]; then
                 select_cli "$CLAUDE_CODE_EXECPATH" "$app_source" && return
                 echo "Claude 当前 app CLI 无法读取版本；已检查来源：$app_source（CLAUDE_CODE_EXECPATH）" >&2
                 return 2

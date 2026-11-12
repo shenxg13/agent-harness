@@ -342,7 +342,8 @@ WSLPATH
 app_discovery() {
     local who=$1 variant=$2 expected source version
     app_fixture "$who"
-    local older=$app_dir/z-9.99$app_suffix newest=$app_dir/a-1.0-hash$app_suffix
+    # The newest version must not be the first path/glob candidate.
+    local older=$app_dir/a-9.99$app_suffix newest=$app_dir/z-1.0-hash$app_suffix
     install_fake "$older" 'fake-cli 2.9.0'
     install_fake "$newest" 'fake-cli 2.10.0'
     expected=$newest version=2.10.0
@@ -355,7 +356,10 @@ app_discovery() {
             printf 'codex-cli 0.167.0-alpha.4.10\n' >"$newest.version"
             version=0.167.0-alpha.4.10
             ;;
-        tie) printf 'fake-cli 2.10.0\n' >"$older.version" ;;
+        tie)
+            printf 'fake-cli 2.10.0\n' >"$older.version"
+            expected=$older
+            ;;
         unavailable)
             touch "$newest.fail"
             printf 'unparseable\n' >"$older.version"
@@ -365,21 +369,64 @@ app_discovery() {
             run_env+=("${who^^}_BIN=$case_root/bin/fake-cli")
             expected=$case_root/bin/fake-cli version=1.0 source=explicit
             ;;
-        execpath)
+        execpath | execpath-3p | non-desktop-execpath)
             install_fake "$case_root/current claude" '2.1.0 (Claude Code)'
             run_env+=("CLAUDE_CODE_EXECPATH=$case_root/current claude")
-            expected=$case_root/current\ claude version=2.1.0
+            case $variant in
+                execpath) run_env+=(CLAUDE_CODE_ENTRYPOINT=claude-desktop) ;;
+                execpath-3p) run_env+=(CLAUDE_CODE_ENTRYPOINT=claude-desktop-3p) ;;
+                non-desktop-execpath) run_env+=(CLAUDE_CODE_ENTRYPOINT=claude-vscode) ;;
+            esac
+            if [[ $variant != non-desktop-execpath ]]; then
+                expected=$case_root/current\ claude version=2.1.0
+            fi
             ;;
-        invalid-execpath) run_env+=("CLAUDE_CODE_EXECPATH=$case_root/nonexistent") ;;
+        invalid-execpath)
+            run_env+=(CLAUDE_CODE_ENTRYPOINT=claude-desktop "CLAUDE_CODE_EXECPATH=$case_root/nonexistent")
+            ;;
     esac
     expect_rc 0 run_b "$who"
     jq -e --arg expected "$expected" '.bin==$expected' "$trace" >/dev/null
     grep -Fq "CLI 来源 $source；版本 $version；路径 \`$expected\`" "$d/log.md"
-    if [[ $variant == explicit || $variant == execpath ]]; then
+    if [[ $variant == explicit || $variant == execpath || $variant == execpath-3p ]]; then
         [[ $(cat "$trace.probes") == "$expected" && ! -e $trace.interop ]]
     else
         [[ $(wc -l <"$trace.probes") == "$([[ $variant == unavailable ]] && echo 3 || echo 2)" ]]
     fi
+}
+non_desktop_execpath() {
+    local entrypoint=$1 layout=$2 current expected source version
+    app_fixture claude
+    expected=$extension source=vscode-extension version=99.0
+    current=$case_root/other-claude
+    install_fake "$current" '2.1.0 (Claude Code)'
+    case $layout in
+        extension) current=$extension ;;
+        other) ;;
+        unparseable) printf 'v22.11.0\n' >"$current.version" ;;
+        path)
+            rm "$extension"
+            expected=$case_root/bin/claude source=path version=100.0
+            ;;
+    esac
+    run_env+=("CLAUDE_CODE_EXECPATH=$current")
+    if [[ $entrypoint != unset ]]; then run_env+=("CLAUDE_CODE_ENTRYPOINT=$entrypoint"); fi
+    expect_rc 0 run_b claude
+    jq -e --arg expected "$expected" '.bin==$expected and (.env | has("CLAUDE_CODE_ENTRYPOINT") | not)' "$trace" >/dev/null
+    grep -Fq "CLI 来源 $source；版本 $version；路径 \`$expected\`" "$d/log.md"
+    [[ $(cat "$trace.probes") == "$expected" ]]
+}
+desktop_execpath_version_failure() {
+    local entrypoint=$1 failure=$2 current=$case_root/current-claude
+    app_fixture claude
+    install_fake "$app_dir/available" '9.0.0 (Claude Code)'
+    install_fake "$current" 'v22.11.0'
+    if [[ $failure == command ]]; then touch "$current.fail"; fi
+    run_env+=("CLAUDE_CODE_ENTRYPOINT=$entrypoint" "CLAUDE_CODE_EXECPATH=$current")
+    expect_rc 2 run_b claude
+    grep -q 'Claude 当前 app CLI 无法读取版本' "$case_root/stderr"
+    [[ $(cat "$trace.probes") == "$current" && $(wc -l <"$trace.calls") == 1 ]]
+    [[ ! -e $trace && ! -e $trace.help && ! -e $d/log.md && ! -e $d/review-claude.rc && ! -e $d/review-claude.events.jsonl ]]
 }
 interop_fallback() {
     local variant=$1
@@ -430,7 +477,12 @@ legacy_smoke() {
     local who=$1 step=$2 variant=$3
     configure
     # Include all old names and an empty exported value: emit exactly one warning.
-    run_env+=(CLAUDE_MODEL=ignored CLAUDE_EFFORT=medium CODEX_MODEL=ignored CODEX_EFFORT=)
+    run_env+=(CLAUDE_MODEL=ignored CLAUDE_EFFORT=medium CODEX_MODEL=ignored CODEX_EFFORT=high)
+    # Leave the other model empty, keeping this CLI's model and effort nonempty.
+    if [[ $who == codex ]]; then run_env+=(CLAUDE_MODEL=); else run_env+=(CODEX_MODEL=); fi
+    if [[ $variant == empty ]]; then
+        run_env+=(CLAUDE_MODEL= CLAUDE_EFFORT= CODEX_MODEL= CODEX_EFFORT=)
+    fi
     if [[ $variant == new ]]; then
         run_env+=("DEBATE_SMOKE_${who^^}_MODEL=new-model" "DEBATE_SMOKE_${who^^}_EFFORT=low")
     fi
@@ -647,11 +699,23 @@ for who in claude codex; do
     run_test "override-$who-invalid" invalid_override "$who"
     run_test "environment-$who" environment_isolation "$who"
     for step in smoke review; do
-        for variant in old new; do run_test "legacy-$who-$step-$variant" legacy_smoke "$who" "$step" "$variant"; done
+        for variant in old new empty; do run_test "legacy-$who-$step-$variant" legacy_smoke "$who" "$step" "$variant"; done
     done
     run_test "capability-$who-help-failure" missing_capability "$who" help-failure
 done
-for variant in execpath invalid-execpath; do run_test "app-claude-$variant" app_discovery claude "$variant"; done
+for variant in execpath execpath-3p invalid-execpath non-desktop-execpath; do
+    run_test "app-claude-$variant" app_discovery claude "$variant"
+done
+for entrypoint in unset claude-vscode cli; do
+    for layout in extension other unparseable path; do
+        run_test "non-desktop-$entrypoint-$layout" non_desktop_execpath "$entrypoint" "$layout"
+    done
+done
+for entrypoint in claude-desktop claude-desktop-3p; do
+    for failure in parse command; do
+        run_test "execpath-$entrypoint-$failure" desktop_execpath_version_failure "$entrypoint" "$failure"
+    done
+done
 for variant in no-cmd no-wslpath failed-cmd failed-wslpath linux; do run_test "interop-$variant" interop_fallback "$variant"; done
 for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools; do
     run_test "capability-claude-$flag" missing_capability claude "$flag"
