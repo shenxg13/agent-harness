@@ -201,6 +201,10 @@ codex_boundary() {
             # shellcheck disable=SC2016 # jq variables, not Shell expansion.
             args_match '.args | index("mcp_servers={}") as $i | $i != null and .[$i-1] == "-c"'
             ;;
+        agents)
+            # shellcheck disable=SC2016 # jq variables, not Shell expansion.
+            args_match '.args | index("agents.enabled=false") as $i | $i != null and .[$i-1] == "-c"'
+            ;;
         ephemeral) args_match '.args | any(. == "--ephemeral")' ;;
         user-config) args_match '.args | all(. != "--ignore-user-config")' ;;
         *)
@@ -742,7 +746,7 @@ for flag in --json -o -s -C -c --disable --ephemeral; do run_test "capability-co
 run_test failure-claude-is-error failure_final claude error
 for budget in yes no; do
     run_test "codex-$budget" codex_success "$budget"
-    for control in mcp apps plugins remote_plugin memories browser_use computer_use image_generation hooks multi_agent skill_search ephemeral user-config; do
+    for control in mcp agents apps plugins remote_plugin memories browser_use computer_use image_generation hooks multi_agent skill_search ephemeral user-config; do
         run_test "codex-boundary-$budget-$control" codex_boundary "$budget" "$control"
     done
     run_test "claude-$budget" claude_permissions "$budget"

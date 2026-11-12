@@ -139,7 +139,7 @@ log 启动 "CLI 来源 $cli_source；版本 $cli_selected_version；路径 \`$bi
 start=$(date +%s)
 case $b in
     codex)
-        # 联网搜索走 Codex 原生 web_search（模型侧执行，不需要沙箱联网）。
+        # 联网搜索走 Codex 原生搜索（code mode 为 web__run，不需要沙箱联网）。
         # 取数要在沙箱里联网：改用 workspace-write 并打开网络，工作根目录设为本场 evidence/，
         # 可写范围因此只有 evidence/（及系统临时目录），仓库其余部分仍只读。
         if [[ $fetch == yes ]]; then
@@ -149,9 +149,11 @@ case $b in
             sandbox=(-s read-only -C "$repo")
         fi
         # 保留用户提供方与网络配置，仅覆盖 MCP 表和已确认的功能名单。
+        # agents.enabled 另行关闭当前 CLI 的多代理工具，不能只依赖 multi_agent 功能位。
         # ephemeral 不留 CLI 会话文件；排查使用本入口的事件流、stderr 与最终输出。
         "$bin" exec -m "$model" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="live"' "${sandbox[@]}" \
             -c 'mcp_servers={}' \
+            -c 'agents.enabled=false' \
             --disable apps --disable plugins --disable remote_plugin --disable memories \
             --disable browser_use --disable computer_use --disable image_generation \
             --disable hooks --disable multi_agent --disable skill_search \

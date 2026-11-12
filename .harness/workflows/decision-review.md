@@ -169,11 +169,20 @@ CLI 定位与 smoke 参数解析完成后，在帮助检查和 B 启动之前清
 Codex 两种模式均用 `-c 'mcp_servers={}'` 清空用户配置的 MCP 服务器，并逐项 `--disable`
 关闭 `apps`、`plugins`、`remote_plugin`、`memories`、`browser_use`、`computer_use`、
 `image_generation`、`hooks`、`multi_agent`、`skill_search`，限制内置远程连接、应用、插件及记忆等扩展。
+另用 `-c 'agents.enabled=false'` 关闭多代理工具。CLI `0.167.0-alpha.4.1` 的实测中，
+仅关闭 `multi_agent` 功能位仍会暴露 `collaboration.*`，不能以功能位为 false 代替工具定义检查。
 不使用 `--ignore-user-config`，不修改用户配置文件；用户的模型提供方、代理和网络设置继续生效。
 `--ephemeral` 不把 B 的会话文件写到磁盘，事后排查依赖本入口保存的事件流、stderr 和最终输出。
 功能名随 CLI 版本变化，参数能力检查只证明开关存在，不能证明名称仍有效或实际连接已经隔离。
 边界以这份关闭名单为准，未来新增功能或新的连接器机制不会自动纳入；升级后须核对功能名并授权
 smoke，检查事件流和 stderr 没有 MCP／应用连接，且记忆目录没有新增或修改的文件。
+
+smoke 应按当前实际工具模式调用原生搜索：code mode 下通过 `functions.exec` 调用
+`tools.web__run` 的 `search_query`，不能只因没有独立名为 `web_search` 的工具就判定搜索不可用。
+以实际搜索结果验证联网；工具自述只能辅助。检查暴露面时分别记录具体 MCP／应用连接器、
+通用 MCP 资源接口和多代理工具；`list_mcp_resources` 等通用接口存在不代表连接器已加载。
+无推理请求捕获可验证工具定义，不能替代真实搜索验收；单独的 `debug prompt-input` 可能遗漏
+运行时追加工具。首次失败保留原产物，后续获授权的 smoke 使用独立场次目录，不覆盖失败记录。
 配置项参考 [Codex 配置文档](https://learn.chatgpt.com/docs/config-file/config-reference)，
 实际参数能力和隔离证据以选定 CLI 的帮助输出及本次验证记录为准。
 

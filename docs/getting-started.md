@@ -44,7 +44,7 @@ git diff --cached --check
 1. 在 Linux／WSL 安装 Claude 和 Codex CLI，并按当前会话政策授权联网。启动脚本先用
    `CLAUDE_BIN`／`CODEX_BIN`，再查桌面 app、VS Code 扩展，最后查 `PATH`；找不到则拒绝。
    B 只使用 CLI 默认位置的登录；自设配置目录和匹配前缀的认证、服务方选择变量会被清除，
-   依赖它们的项目须先在默认位置登录。Codex B 清空 MCP 表、关闭工作流列出的扩展功能，
+   依赖它们的项目须先在默认位置登录。Codex B 清空 MCP 表、关闭工作流列出的扩展及多代理工具，
    使用 `--ephemeral`，保留用户提供方、代理和网络配置。功能名与实际隔离须按 CLI 版本核验。
    清除示例、关闭名单、桌面会话判别和后备规则见[运行审查方](../.harness/workflows/decision-review.md#运行审查方)。
 2. 核对项目所有的 `scripts/debate/config.env`：Claude 默认 `claude-opus-5-5`、Codex 默认
