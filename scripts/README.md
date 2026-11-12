@@ -71,7 +71,12 @@ Other sessions ignore EXECPATH; when it is not adopted, discovery scans `ccd-cli
 Codex app discovery requires WSL Windows interop. The startup log records source, version and path.
 Required help flags are checked before model execution or log creation.
 The workflow defines the shared A-session environment removal list, including
-custom configuration-directory overrides. Only `DEBATE_SMOKE_CLAUDE_MODEL`,
+custom configuration-directory overrides and matching authentication/provider variables.
+B requires login in the CLI default location; see the workflow for the exact rules and examples.
+Both Codex modes clear the MCP server table, disable the workflow's listed extension features,
+and use `--ephemeral`, while retaining user provider/proxy/network settings.
+Feature names require version-specific verification; help checks alone do not prove isolation.
+Only `DEBATE_SMOKE_CLAUDE_MODEL`,
 `DEBATE_SMOKE_CLAUDE_EFFORT`, `DEBATE_SMOKE_CODEX_MODEL` and
 `DEBATE_SMOKE_CODEX_EFFORT` override smoke configuration; the four old names are
 ignored with one smoke-only warning. Configuration errors refuse before CLI/log

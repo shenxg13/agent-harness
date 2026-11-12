@@ -4,6 +4,8 @@ set -euo pipefail
 repo_root=$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd)
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/agent-harness-debate.XXXXXX")
 trap 'rm -rf -- "$test_root"' EXIT
+# mktemp preserves a trailing TMPDIR slash; compare paths in the runner's canonical form.
+test_root=$(realpath -e -- "$test_root")
 passed=0 failed=0
 
 fixture() {
@@ -36,7 +38,7 @@ fi
 if [[ ${1:-} == --help || ${2:-} == --help ]]; then
     printf '%s\n' "$*" >"$TRACE.help"
     if [[ ${HELP_FAIL:-} == yes ]]; then exit 1; fi
-    for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools --json -o -s -C; do
+    for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools --json -o -s -C -c --disable --ephemeral; do
         if [[ $flag != "${MISSING_FLAG:-}" ]]; then
             printf '  %s VALUE\n' "$flag"
         else
@@ -190,6 +192,23 @@ codex_success() {
     grep -Fq "$(git -C "$main" rev-parse HEAD)" "$d/log.md"
     grep -Fq "$(sha256sum "$d/review-codex.md" | cut -c1-64)" "$d/log.md"
 }
+codex_boundary() {
+    local budget=$1 control=$2
+    if [[ $budget == yes ]]; then printf '{}' >"$d/fetch-budget.json"; fi
+    expect_rc 0 run_b
+    case $control in
+        mcp)
+            # shellcheck disable=SC2016 # jq variables, not Shell expansion.
+            args_match '.args | index("mcp_servers={}") as $i | $i != null and .[$i-1] == "-c"'
+            ;;
+        ephemeral) args_match '.args | any(. == "--ephemeral")' ;;
+        user-config) args_match '.args | all(. != "--ignore-user-config")' ;;
+        *)
+            jq -e --arg feature "$control" '
+              .args | index($feature) as $i | $i != null and .[$i-1] == "--disable"' "$trace" >/dev/null
+            ;;
+    esac
+}
 claude_permissions() {
     local budget=$1
     configure
@@ -198,17 +217,14 @@ claude_permissions() {
     jq -e --arg main "$main" --arg scripts "${runner%/run-b.sh}" \
         --argjson budget "$([[ $budget == yes ]] && echo true || echo false)" '
       .cwd==$main and .memory=="1" and
-      (.args | (index("--tools") as $i | .[$i+1]=="Read,Grep,Glob,Bash,WebSearch,WebFetch") and
-      any(.=="--restricted") and any(.=="--strict-mcp-config") and
-      (any(.=="--mcp-config")|not) and
-      (index("--permission-mode") as $i | .[$i+1]=="dontAsk") and
-      (index("--permission-prompts") as $i | .[$i+1]=="none") and
-      (.[index("--disallowedTools")+1:index("--strict-mcp-config")] ==
-       ["Read(/"+$main+"/.env)","Read(/"+$main+"/var/private/second key)"]) and
-      (.[index("--allowedTools")+1:index("--disallowedTools")] ==
-       (["Read","Grep","Glob","WebSearch","WebFetch","Bash(scripts/debate/git-read.sh:*)",
-         "Bash("+$scripts+"/git-read.sh:*)"] +
-        if $budget then ["Bash(scripts/debate/fetch.sh:*)","Bash("+$scripts+"/fetch.sh:*)"] else [] end)))' "$trace" >/dev/null
+      .args == (["-p","--model","project-claude","--effort","high",
+        "--restricted","--tools","Read,Grep,Glob,Bash,WebSearch,WebFetch","--allowedTools",
+        "Read","Grep","Glob","WebSearch","WebFetch","Bash(scripts/debate/git-read.sh:*)",
+        "Bash("+$scripts+"/git-read.sh:*)"] +
+        (if $budget then ["Bash(scripts/debate/fetch.sh:*)","Bash("+$scripts+"/fetch.sh:*)"] else [] end) +
+        ["--disallowedTools","Read(/"+$main+"/.env)","Read(/"+$main+"/var/private/second key)",
+         "--strict-mcp-config","--permission-mode","dontAsk","--permission-prompts","none",
+         "--output-format","stream-json","--verbose"])' "$trace" >/dev/null
     [[ $(cat "$d/review-claude.rc") == 0 && -s $d/review-claude.md ]]
 }
 failure_final() {
@@ -680,6 +696,8 @@ run_test() {
         cat "$test_root/output" >&2
     fi
 }
+test_root_normalized() { [[ $test_root == "$(realpath -e -- "$test_root")" ]]; }
+run_test test-root-normalized test_root_normalized
 run_test placeholder placeholder
 for suffix in md events.jsonl stderr rc; do run_test "existing-$suffix" existing "$suffix"; done
 for state in branch detached dirty untracked; do run_test "main-$state" main_gate "$state"; done
@@ -720,10 +738,13 @@ for variant in no-cmd no-wslpath failed-cmd failed-wslpath linux; do run_test "i
 for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools; do
     run_test "capability-claude-$flag" missing_capability claude "$flag"
 done
-for flag in --json -o -s -C; do run_test "capability-codex-$flag" missing_capability codex "$flag"; done
+for flag in --json -o -s -C -c --disable --ephemeral; do run_test "capability-codex-$flag" missing_capability codex "$flag"; done
 run_test failure-claude-is-error failure_final claude error
 for budget in yes no; do
     run_test "codex-$budget" codex_success "$budget"
+    for control in mcp apps plugins remote_plugin memories browser_use computer_use image_generation hooks multi_agent skill_search ephemeral user-config; do
+        run_test "codex-boundary-$budget-$control" codex_boundary "$budget" "$control"
+    done
     run_test "claude-$budget" claude_permissions "$budget"
 done
 run_test concurrent concurrent

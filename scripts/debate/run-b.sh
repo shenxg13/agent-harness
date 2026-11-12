@@ -148,8 +148,14 @@ case $b in
         else
             sandbox=(-s read-only -C "$repo")
         fi
+        # 保留用户提供方与网络配置，仅覆盖 MCP 表和已确认的功能名单。
+        # ephemeral 不留 CLI 会话文件；排查使用本入口的事件流、stderr 与最终输出。
         "$bin" exec -m "$model" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="live"' "${sandbox[@]}" \
-            --json -o "$out" - <"$prompt" >"$ev" 2>"$err"
+            -c 'mcp_servers={}' \
+            --disable apps --disable plugins --disable remote_plugin --disable memories \
+            --disable browser_use --disable computer_use --disable image_generation \
+            --disable hooks --disable multi_agent --disable skill_search \
+            --ephemeral --json -o "$out" - <"$prompt" >"$ev" 2>"$err"
         rc=$?
         ;;
     claude)

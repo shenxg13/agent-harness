@@ -97,6 +97,9 @@ scripts/quality/check.sh
 核对实际选择；内部目录改变时用 `CLAUDE_BIN`／`CODEX_BIN` 固定 CLI。帮助输出缺少必需参数
 会在模型调用和日志之前拒绝，需维护者选用兼容版本，不降低检查。
 smoke 覆盖已改名为 `DEBATE_SMOKE_*`；旧名忽略且只提示一次。B 清除 A 的 app 环境后使用
-CLI 默认配置目录，原有 `CLAUDE_CONFIG_DIR`／`CODEX_HOME` 不再传递。定位、清除名单和
-[smoke 新旧变量对照](../../.harness/workflows/decision-review.md#运行审查方)由工作流维护；
-登录可用性需要另行授权实机验证，离线检查只证明脚本合同。
+CLI 默认位置的登录，原有 `CLAUDE_CONFIG_DIR`／`CODEX_HOME` 不再传递；前缀匹配的认证与服务方
+选择变量也被清除，依赖它们的项目须先在默认位置登录。Codex 两种模式清空 MCP 表、逐项关闭
+工作流列出的扩展功能，并使用 `--ephemeral`；保留用户提供方、代理和网络配置。
+定位、清除名单、功能关闭项和 [smoke 新旧变量对照](../../.harness/workflows/decision-review.md#运行审查方)
+由工作流维护；登录可用性、实际连接边界和记忆目录是否变化需要另行授权实机验证。
+功能名可能随 CLI 版本变化，离线检查只证明脚本合同，帮助检查不能证明功能名仍有效。

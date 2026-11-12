@@ -124,7 +124,7 @@ check_cli_capabilities() {
             help=$("$bin" --help 2>/dev/null) || return 2
             ;;
         codex)
-            flags=(--json -o -s -C)
+            flags=(--json -o -s -C -c --disable --ephemeral)
             help=$("$bin" exec --help 2>/dev/null) || return 2
             ;;
     esac
