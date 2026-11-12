@@ -47,3 +47,8 @@ When a project ingests or derives data, preserve the relevant immutable source
 or checksum, record provenance, distinguish observations from inference, and
 include a bounded replay case before claiming the affected behavior verified.
 This conditional gate does not prescribe a business data model or service stack.
+
+## Harness Updates
+
+- [评审记录单一对象校验](update-log/2026-11-12-issue-18-review-record-shape.md) —
+  下游采用此次校验器修复时阅读；完整历史见 [更新日志目录](update-log/)。
