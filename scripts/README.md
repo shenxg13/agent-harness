@@ -73,8 +73,15 @@ Required help flags are checked before model execution or log creation.
 The workflow defines the shared A-session environment removal list, including
 custom configuration-directory overrides and matching authentication/provider variables.
 B requires login in the CLI default location; see the workflow for the exact rules and examples.
-Both Codex modes clear the MCP server table, disable the workflow's listed extension features
-and multi-agent tools, and use `--ephemeral`, while retaining user provider/proxy/network settings.
+Both Codex modes enumerate configured MCP servers with `mcp list --json` in B's working directory,
+apply a per-server `enabled=false` override, then list again and require every server to be disabled.
+The preflight runs after capability checks and before model execution or logging. Command failures,
+invalid inventory, names outside `^[A-Za-z0-9_-]+$`, or an enabled server on recheck refuse with exit 2.
+It depends on the CLI's inventory format and name addressing; the workflow owns the complete rules.
+CLI `0.167.0-alpha.4.1` probes HTTP MCP OAuth metadata during the initial list; disabled recheck
+and model execution do not connect in the loopback probe. The preflight is not network-free.
+Both modes also disable the listed extension and multi-agent tools and use `--ephemeral`,
+while retaining user provider/proxy/network settings.
 The workflow also distinguishes native search entry points and generic MCP resource helpers
 from concrete connectors when validating smoke results.
 Feature names require version-specific verification; help checks alone do not prove isolation.

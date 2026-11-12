@@ -163,11 +163,22 @@ CLI 定位与 smoke 参数解析完成后，在帮助检查和 B 启动之前清
 | B | 阅读、联网与执行边界 |
 | --- | --- |
 | Claude | 保留 `--restricted`；无论有无预算，以 `--disallowedTools` 的 Read 路径规则拒绝主检出凭据文件，其他研究资料仍可读；`--strict-mcp-config` 且不传 MCP 配置，不加载 MCP 连接器；WebSearch/WebFetch 联网；Bash 显式放行 git-read.sh，有预算时另放行 fetch.sh，不显式放行裸 git、Python 或写入工具；dontAsk 仍自动运行内置只读命令，不加载自动记忆 |
-| Codex，无预算 | `read-only`，工作目录为主检出；原生 live web search；可运行只读命令和 Python 提取文本；清空 MCP 配置、关闭下列功能，不持久化会话 |
-| Codex，有预算 | `workspace-write` 加沙箱网络，工作目录为本场 evidence/；只有该目录与系统临时目录可写，仓库其余部分只读；同样清空 MCP 配置、关闭下列功能，不持久化会话 |
+| Codex，无预算 | `read-only`，工作目录为主检出；原生 live web search；可运行只读命令和 Python 提取文本；枚举并逐项禁用 MCP 服务器、关闭下列功能，不持久化会话 |
+| Codex，有预算 | `workspace-write` 加沙箱网络，工作目录为本场 evidence/；只有该目录与系统临时目录可写，仓库其余部分只读；同样逐项禁用 MCP 服务器、关闭下列功能，不持久化会话 |
 
-Codex 两种模式均用 `-c 'mcp_servers={}'` 清空用户配置的 MCP 服务器，并逐项 `--disable`
-关闭 `apps`、`plugins`、`remote_plugin`、`memories`、`browser_use`、`computer_use`、
+Codex 两种模式在参数能力检查之后、写启动日志和调用模型之前，以清除后的环境在 B 的实际工作目录
+运行 `"$bin" mcp list --json`（无预算为主检出，有预算为本场 `evidence/`），枚举 CLI 解析出的服务器。
+对名称匹配 `^[A-Za-z0-9_-]+$` 的每一项追加 `-c "mcp_servers.<name>.enabled=false"`，
+带同一组覆盖参数再次列出，要求每一项的 `enabled` 都为 false；模型调用复用该组覆盖参数。
+列出命令失败、输出不是单个符合预期结构的 JSON 数组、名称不符合规则（包括带点名称），或复查仍有
+启用项时，均退出 2 并在 stderr 说明原因，不调用模型、不写启动日志；不输出列表原文。
+这依赖选定 CLI 的 `mcp list --json` 输出结构和名称可寻址性；目录加载规则由该 CLI 决定，
+所以枚举与执行必须使用同一目录。CLI `0.167.0-alpha.4.1` 的回环探针还表明：首次枚举会对启用的
+HTTP MCP 地址发起 OAuth 元数据 GET 探测；逐项禁用后复查与 `exec` 均未连接这些服务器。
+该机制关闭模型执行时的 MCP，不能承诺整个预检过程没有 HTTP 请求。
+空表覆盖不会删除按层合并的已有服务器，不能用于关闭 MCP。
+
+此外逐项 `--disable` 关闭 `apps`、`plugins`、`remote_plugin`、`memories`、`browser_use`、`computer_use`、
 `image_generation`、`hooks`、`multi_agent`、`skill_search`，限制内置远程连接、应用、插件及记忆等扩展。
 另用 `-c 'agents.enabled=false'` 关闭多代理工具。CLI `0.167.0-alpha.4.1` 的实测中，
 仅关闭 `multi_agent` 功能位仍会暴露 `collaboration.*`，不能以功能位为 false 代替工具定义检查。
@@ -347,7 +358,8 @@ scripts/debate/snapshot-issue.sh "$N" "$D/full-snapshot.md" OWNER/REPO
 - 大文件进入 B 上下文后会在后续回合累计缓存读取成本。给精确出处和必要片段；省材料不能省关键证据。
 - `gh --jq .body` 多出的末尾换行会影响哈希，用 `jq -j`；评论 ID 用 `${URL##*-}`，不能按所有连字符切分。
 - Claude 不显式放行 gh 或 Python；只在线上评论或 PDF 的理由须预先保存可读快照和文本。
-- 不把无表态写成共识；工具事件比模型对工具结果的转述可靠。查 Codex 会话可只读查看 resume，
-  不输入或选持久授权；Claude 会话 JSONL 用 jq 查看，不用 resume 再启动。
+- 不把无表态写成共识；工具事件比模型对工具结果的转述可靠。`run-b.sh` 启动的 Codex B 使用
+  `--ephemeral`，查本场事件流、stderr 与最终输出，不依赖 resume；Claude 会话 JSONL 用 jq 查看，
+  不用 resume 再启动。
 - 每场 `process-notes.md` 记偏差、卡点、分级调整、调用次数与成本、联网和取数实际使用、确认次数、
   交给用户的事项与理由，供后续改进；流程更新须回到其所属规则，而非只留在场次目录。
