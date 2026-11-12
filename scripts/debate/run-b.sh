@@ -4,7 +4,7 @@
 # 事件流和 stderr 写到同名的 .events.jsonl、.stderr；在 <目录>/log.md 追加启动、结束、记录三行；
 # 最后把退出码写进 <目录>/<步骤>-<B>.rc。执行会话看到 .rc 才算结束，不重复启动。
 # B 一律可以联网搜索、读网页；<目录>/fetch-budget.json 存在时，还可以用 fetch.sh 在预算内取数。B 不得改仓库，实际工具边界见下方 Claude 注释及工作流。
-# 正式模型与档位读取项目所有的 config.env；CODEX_MODEL、CODEX_EFFORT、CLAUDE_MODEL、CLAUDE_EFFORT 只用于冒烟测试。
+# 正式模型与档位读取项目所有的 config.env；DEBATE_SMOKE_* 覆盖只用于冒烟测试。
 set -uo pipefail
 d=${1:?辩论目录}
 r=${2:?步骤：review、followup、check、draft 或 smoke}
@@ -98,21 +98,21 @@ fetch=no
 
 case $b in
     codex)
-        bin=$(find_cli openai.chatgpt bin/linux-x86_64/codex)
+        find_cli openai.chatgpt bin/linux-x86_64/codex || exit 2
         model=$DEBATE_CODEX_MODEL
         effort=$DEBATE_CODEX_EFFORT
         if [[ $r == smoke ]]; then
-            model=${CODEX_MODEL:-$model}
-            effort=${CODEX_EFFORT:-$effort}
+            model=${DEBATE_SMOKE_CODEX_MODEL:-$model}
+            effort=${DEBATE_SMOKE_CODEX_EFFORT:-$effort}
         fi
         ;;
     claude)
-        bin=$(find_cli anthropic.claude-code resources/native-binary/claude)
+        find_cli anthropic.claude-code resources/native-binary/claude || exit 2
         model=$DEBATE_CLAUDE_MODEL
         effort=$DEBATE_CLAUDE_EFFORT
         if [[ $r == smoke ]]; then
-            model=${CLAUDE_MODEL:-$model}
-            effort=${CLAUDE_EFFORT:-$effort}
+            model=${DEBATE_SMOKE_CLAUDE_MODEL:-$model}
+            effort=${DEBATE_SMOKE_CLAUDE_EFFORT:-$effort}
         fi
         ;;
     *)
@@ -120,13 +120,22 @@ case $b in
         exit 2
         ;;
 esac
-[[ -x $bin ]] || {
-    echo "找不到 $b 的可执行文件：$bin" >&2
+if [[ $r == smoke ]]; then
+    for name in CLAUDE_MODEL CLAUDE_EFFORT CODEX_MODEL CODEX_EFFORT; do
+        if [[ -v $name ]]; then
+            echo '旧 smoke 变量 CLAUDE_MODEL/CLAUDE_EFFORT/CODEX_MODEL/CODEX_EFFORT 已废弃、未生效；请使用 DEBATE_SMOKE_*' >&2
+            break
+        fi
+    done
+fi
+isolate_b_environment
+check_cli_capabilities "$b" || {
+    echo "$b CLI 参数能力检查失败，拒绝启动" >&2
     exit 2
 }
 
 log() { echo "| $(date -u +%FT%TZ) | $label $1 | $2 |" >>"$d/log.md"; }
-log 启动 "$("$bin" --version 2>/dev/null | head -1)，$model，$effort；主检出 HEAD $main_head；联网搜索开，取数 $fetch；prompt SHA-256 \`$(sha256sum "$prompt" | cut -c1-64)\`"
+log 启动 "CLI 来源 $cli_source；版本 $cli_selected_version；路径 \`$bin\`；$model，$effort；主检出 HEAD $main_head；联网搜索开，取数 $fetch；prompt SHA-256 \`$(sha256sum "$prompt" | cut -c1-64)\`"
 start=$(date +%s)
 case $b in
     codex)

@@ -28,11 +28,26 @@ fixture() {
 set -euo pipefail
 printf 'called\n' >>"$TRACE.calls"
 if [[ ${1:-} == --version ]]; then
-    printf 'fake-cli 1.0\n'
+    printf '%s\n' "$0" >>"$TRACE.probes"
+    if [[ -f $0.fail ]]; then exit 1; fi
+    if [[ -f $0.version ]]; then cat "$0.version"; else printf 'fake-cli 1.0\n'; fi
+    exit 0
+fi
+if [[ ${1:-} == --help || ${2:-} == --help ]]; then
+    printf '%s\n' "$*" >"$TRACE.help"
+    if [[ ${HELP_FAIL:-} == yes ]]; then exit 1; fi
+    for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools --json -o -s -C; do
+        if [[ $flag != "${MISSING_FLAG:-}" ]]; then
+            printf '  %s VALUE\n' "$flag"
+        else
+            # Similar names must not satisfy the required exact flag.
+            printf '  %s-suffix VALUE\n' "$flag"
+        fi
+    done
     exit 0
 fi
 jq -n --arg cwd "$PWD" --arg bin "$0" --arg memory "${CLAUDE_CODE_DISABLE_AUTO_MEMORY:-}" \
-    --args '{cwd:$cwd,bin:$bin,memory:$memory,args:$ARGS.positional}' -- "$@" >"$TRACE"
+    --args '{cwd:$cwd,bin:$bin,memory:$memory,args:$ARGS.positional,env:env}' -- "$@" >"$TRACE"
 cat >"$TRACE.prompt"
 if [[ -n ${WAIT_FIFO:-} ]]; then read -r _ <"$WAIT_FIFO"; fi
 if [[ $1 == exec ]]; then
@@ -130,7 +145,8 @@ invalid_config() {
 models() {
     local who=$1 step=$2
     configure
-    run_env+=(CLAUDE_MODEL=smoke-claude CLAUDE_EFFORT=low CODEX_MODEL=smoke-codex CODEX_EFFORT=low)
+    run_env+=(DEBATE_SMOKE_CLAUDE_MODEL=smoke-claude DEBATE_SMOKE_CLAUDE_EFFORT=low
+        DEBATE_SMOKE_CODEX_MODEL=smoke-codex DEBATE_SMOKE_CODEX_EFFORT=low)
     expect_rc 0 run_b "$who" "$step"
     if [[ $step == smoke ]]; then
         args_match '.args | any(. == "smoke-'"$who"'")'
@@ -203,10 +219,10 @@ failure_final() {
     [[ $(cat "$d/review-$who.rc") == "$expected" ]]
     if [[ $mode != nonzero ]]; then grep -q 没有输出 "$d/log.md"; fi
     cp "$d/log.md" "$case_root/before"
-    [[ $(wc -l <"$trace.calls") == 2 ]]
+    [[ $(wc -l <"$trace.calls") == 3 ]]
     expect_rc 2 run_b "$who"
     [[ $(sha256sum <"$case_root/before") == "$(sha256sum <"$d/log.md")" ]]
-    [[ $(wc -l <"$trace.calls") == 2 ]]
+    [[ $(wc -l <"$trace.calls") == 3 ]]
 }
 concurrent() {
     mkfifo "$case_root/release"
@@ -225,7 +241,7 @@ concurrent() {
     printf 'finish\n' >"$case_root/release"
     wait "$pid"
     trap - EXIT
-    [[ $(cat "$d/review-codex.rc") == 0 && $(wc -l <"$trace.calls") == 2 ]]
+    [[ $(cat "$d/review-codex.rc") == 0 && $(wc -l <"$trace.calls") == 3 ]]
 }
 worktree() {
     configure
@@ -278,10 +294,187 @@ discovery() {
         expect_rc 2 run_b "$who"
         no_launch
         grep -q '找不到' "$case_root/stderr"
+        grep -q '已检查来源：.*vscode-extension、path' "$case_root/stderr"
     else
         expect_rc 0 run_b "$who"
         jq -e --arg expected "$expected" '.bin==$expected' "$trace" >/dev/null
     fi
+}
+# Discovery fixtures never call a real CLI or Windows executable.
+install_fake() {
+    local dest=$1 version=$2
+    mkdir -p "${dest%/*}"
+    cp "$case_root/bin/fake-cli" "$dest"
+    printf '%s\n' "$version" >"$dest.version"
+}
+app_fixture() {
+    local who=$1
+    run_env=(env -i PATH="$case_root/bin:/usr/bin:/bin" HOME="$case_root/mock-home" TRACE="$trace")
+    if [[ $who == claude ]]; then
+        app_dir=$case_root/mock-home/.claude/remote/ccd-cli
+        app_suffix=''
+        extension=$case_root/mock-home/.vscode/extensions/anthropic.claude-code-99.0-linux-x64/resources/native-binary/claude
+    else
+        # Spaces in the translated Windows profile are significant.
+        app_dir=$case_root/Windows\ Profile/.codex/bin/wsl
+        app_suffix=/codex
+        extension=$case_root/mock-home/.vscode-server/extensions/openai.chatgpt-99.0-linux-x64/bin/linux-x86_64/codex
+        cat >"$case_root/bin/cmd.exe" <<'CMD'
+#!/usr/bin/env bash
+printf 'cmd\n' >>"$TRACE.interop"
+[[ $* == '/d /c echo %USERPROFILE%' ]] || exit 1
+[[ ${INTEROP_FAIL:-} != cmd ]] || exit 1
+printf '%s\r\n' 'C:\Users\Example Profile'
+CMD
+        cat >"$case_root/bin/wslpath" <<'WSLPATH'
+#!/usr/bin/env bash
+printf 'wslpath\n' >>"$TRACE.interop"
+[[ $1 == -u && $2 == 'C:\Users\Example Profile' ]] || exit 1
+[[ ${INTEROP_FAIL:-} != wslpath ]] || exit 1
+printf '%s\n' "$FAKE_WINDOWS_HOME"
+WSLPATH
+        chmod +x "$case_root/bin/cmd.exe" "$case_root/bin/wslpath"
+        run_env+=(WSL_DISTRO_NAME=Offline FAKE_WINDOWS_HOME="$case_root/Windows Profile")
+    fi
+    install_fake "$case_root/bin/$who" 'fake-cli 100.0'
+    install_fake "$extension" 'fake-cli 99.0'
+}
+app_discovery() {
+    local who=$1 variant=$2 expected source version
+    app_fixture "$who"
+    local older=$app_dir/z-9.99$app_suffix newest=$app_dir/a-1.0-hash$app_suffix
+    install_fake "$older" 'fake-cli 2.9.0'
+    install_fake "$newest" 'fake-cli 2.10.0'
+    expected=$newest version=2.10.0
+    source=claude-desktop
+    [[ $who != codex ]] || source=codex-app
+    case $variant in
+        actual) ;;
+        prerelease)
+            printf 'codex-cli 0.167.0-alpha.4.9\n' >"$older.version"
+            printf 'codex-cli 0.167.0-alpha.4.10\n' >"$newest.version"
+            version=0.167.0-alpha.4.10
+            ;;
+        tie) printf 'fake-cli 2.10.0\n' >"$older.version" ;;
+        unavailable)
+            touch "$newest.fail"
+            printf 'unparseable\n' >"$older.version"
+            expected=$extension version=99.0 source=vscode-extension
+            ;;
+        explicit)
+            run_env+=("${who^^}_BIN=$case_root/bin/fake-cli")
+            expected=$case_root/bin/fake-cli version=1.0 source=explicit
+            ;;
+        execpath)
+            install_fake "$case_root/current claude" '2.1.0 (Claude Code)'
+            run_env+=("CLAUDE_CODE_EXECPATH=$case_root/current claude")
+            expected=$case_root/current\ claude version=2.1.0
+            ;;
+        invalid-execpath) run_env+=("CLAUDE_CODE_EXECPATH=$case_root/nonexistent") ;;
+    esac
+    expect_rc 0 run_b "$who"
+    jq -e --arg expected "$expected" '.bin==$expected' "$trace" >/dev/null
+    grep -Fq "CLI 来源 $source；版本 $version；路径 \`$expected\`" "$d/log.md"
+    if [[ $variant == explicit || $variant == execpath ]]; then
+        [[ $(cat "$trace.probes") == "$expected" && ! -e $trace.interop ]]
+    else
+        [[ $(wc -l <"$trace.probes") == "$([[ $variant == unavailable ]] && echo 3 || echo 2)" ]]
+    fi
+}
+interop_fallback() {
+    local variant=$1
+    app_fixture codex
+    install_fake "$app_dir/hash/codex" 'codex-cli 1.0'
+    # Hide any host interop binaries, including /usr/bin/wslpath on WSL.
+    mkdir "$case_root/system-bin"
+    local tool
+    for tool in bash git dirname realpath grep flock sort head cut jq date basename sha256sum cat uname; do
+        ln -s "$(command -v "$tool")" "$case_root/system-bin/$tool"
+    done
+    run_env+=(PATH="$case_root/bin:$case_root/system-bin")
+    case $variant in
+        no-cmd) rm "$case_root/bin/cmd.exe" ;;
+        no-wslpath) rm "$case_root/bin/wslpath" ;;
+        failed-cmd) run_env+=(INTEROP_FAIL=cmd) ;;
+        failed-wslpath) run_env+=(INTEROP_FAIL=wslpath) ;;
+        linux)
+            run_env+=(WSL_DISTRO_NAME= WSL_INTEROP=)
+            printf '#!/bin/sh\necho 6.8.0-generic\n' >"$case_root/bin/uname"
+            chmod +x "$case_root/bin/uname"
+            ;;
+    esac
+    expect_rc 0 run_b codex
+    jq -e --arg expected "$extension" '.bin==$expected' "$trace" >/dev/null
+    if [[ $variant == linux || $variant == no-* ]]; then [[ ! -e $trace.interop ]]; fi
+}
+invalid_override() {
+    local who=$1
+    app_fixture "$who"
+    run_env+=("${who^^}_BIN=$case_root/missing")
+    expect_rc 2 run_b "$who"
+    no_launch
+    [[ ! -e $trace.interop ]]
+    grep -q explicit "$case_root/stderr"
+}
+missing_capability() {
+    local who=$1 flag=$2
+    if [[ $flag == help-failure ]]; then run_env+=(HELP_FAIL=yes); else run_env+=(MISSING_FLAG="$flag"); fi
+    expect_rc 2 run_b "$who"
+    [[ ! -e $trace && ! -e $d/log.md && ! -e $d/review-$who.rc && ! -e $d/review-$who.events.jsonl ]]
+    [[ $(wc -l <"$trace.calls") == 2 ]]
+    [[ $(cat "$trace.help") == "$([[ $who == claude ]] && echo --help || echo 'exec --help')" ]]
+    grep -q '参数能力检查失败' "$case_root/stderr"
+    if [[ $flag != help-failure ]]; then grep -Fq -- "缺少必需参数：$flag" "$case_root/stderr"; fi
+}
+legacy_smoke() {
+    local who=$1 step=$2 variant=$3
+    configure
+    # Include all old names and an empty exported value: emit exactly one warning.
+    run_env+=(CLAUDE_MODEL=ignored CLAUDE_EFFORT=medium CODEX_MODEL=ignored CODEX_EFFORT=)
+    if [[ $variant == new ]]; then
+        run_env+=("DEBATE_SMOKE_${who^^}_MODEL=new-model" "DEBATE_SMOKE_${who^^}_EFFORT=low")
+    fi
+    expect_rc 0 run_b "$who" "$step"
+    local model=project-$who effort
+    effort=$([[ $who == claude ]] && echo high || echo medium)
+    if [[ $step == smoke && $variant == new ]]; then model=new-model effort=low; fi
+    jq -e --arg model "$model" --arg effort "$effort" --arg who "$who" '
+      (.args | any(.==$model)) and
+      (if $who=="claude" then (.args | index("--effort") as $i | .[$i+1]==$effort)
+       else (.args | any(.=="model_reasoning_effort=\""+$effort+"\"")) end)' "$trace" >/dev/null
+    if [[ $step == smoke ]]; then
+        [[ $(grep -c '已废弃、未生效' "$case_root/stderr") == 1 ]]
+    else
+        [[ ! -s $case_root/stderr ]]
+    fi
+}
+environment_isolation() {
+    local who=$1 name
+    local -a removed=(CLAUDECODE CLAUDECODE_FUTURE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_CHILD_SESSION
+        CLAUDE_EFFORT CLAUDE_CONFIG_DIR CLAUDE_CODE_EXECPATH CLAUDE_CODE_SOCKET CLAUDE_CODE_TOKEN
+        CODEX_HOME CODEX_SQLITE_HOME CODEX_THREAD_ID CODEX_FUTURE_FLAG CODEX_SANDBOX_NETWORK_DISABLED
+        ANTHROPIC_BASE_URL USE_LOCAL_OAUTH USE_STAGING_OAUTH API_TIMEOUT_MS DISABLE_AUTOUPDATER
+        DISABLE_MICROCOMPACT MCP_CONNECTION_NONBLOCKING MCP_SERVER_CONNECTION_BATCH_SIZE AI_AGENT
+        LOG_FORMAT RUST_LOG NODE_TLS_REJECT_UNAUTHORIZED NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S)
+    local -a kept=(LC_ALL USERPROFILE WSL_INTEROP WSLENV http_proxy https_proxy HTTPS_PROXY NO_PROXY
+        COREPACK_ENABLE_AUTO_PIN GIT_EDITOR DISPLAY DBUS_SESSION_BUS_ADDRESS TERM PAGER
+        NODE_OTHER RUST_OTHER LOG_OTHER ANTHROPIC_OTHER)
+    for name in "${removed[@]}"; do run_env+=("$name=fixture-value"); done
+    for name in "${kept[@]}"; do run_env+=("$name=fixture-kept"); done
+    run_env+=(LC_ALL=C)
+    expect_rc 0 run_b "$who"
+    jq -e --arg who "$who" '.env | keys | all(
+      if $who=="claude" and .=="CLAUDE_CODE_DISABLE_AUTO_MEMORY" then true
+      else (test("^(CLAUDECODE|CLAUDE_|CODEX_)")|not) end)' "$trace" >/dev/null
+    for name in "${removed[@]}"; do
+        jq -e --arg name "$name" '.env | has($name) | not' "$trace" >/dev/null
+    done
+    for name in "${kept[@]}" PATH HOME; do
+        jq -e --arg name "$name" '.env | has($name)' "$trace" >/dev/null
+    done
+    jq -e --arg home "$case_root/mock-home" '.env.HOME==$home and .env.LC_ALL=="C" and .env.PATH=="/usr/bin:/bin"' "$trace" >/dev/null
+    if [[ $who == claude ]]; then args_match '.memory=="1"'; fi
+    [[ ! -s $case_root/stderr ]]
 }
 git_history() {
     local wt=$case_root/worktree head
@@ -447,6 +640,23 @@ for who in claude codex; do
     done
     for mode in empty nonzero; do run_test "failure-$who-$mode" failure_final "$who" "$mode"; done
 done
+for who in claude codex; do
+    for variant in actual prerelease tie unavailable explicit; do
+        run_test "app-$who-$variant" app_discovery "$who" "$variant"
+    done
+    run_test "override-$who-invalid" invalid_override "$who"
+    run_test "environment-$who" environment_isolation "$who"
+    for step in smoke review; do
+        for variant in old new; do run_test "legacy-$who-$step-$variant" legacy_smoke "$who" "$step" "$variant"; done
+    done
+    run_test "capability-$who-help-failure" missing_capability "$who" help-failure
+done
+for variant in execpath invalid-execpath; do run_test "app-claude-$variant" app_discovery claude "$variant"; done
+for variant in no-cmd no-wslpath failed-cmd failed-wslpath linux; do run_test "interop-$variant" interop_fallback "$variant"; done
+for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools; do
+    run_test "capability-claude-$flag" missing_capability claude "$flag"
+done
+for flag in --json -o -s -C; do run_test "capability-codex-$flag" missing_capability codex "$flag"; done
 run_test failure-claude-is-error failure_final claude error
 for budget in yes no; do
     run_test "codex-$budget" codex_success "$budget"
