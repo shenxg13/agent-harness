@@ -91,3 +91,12 @@ scripts/quality/check.sh
 `--check-tools-only` 也检查 `flock` 存在及版本，缺失会明确报错。真实 Claude／Codex CLI
 不是通用质量入口的依赖；决策审查离线回归只用假 CLI。真实 CLI 的安装、项目配置与授权
 见[可选能力启用说明](../getting-started.md#可选启用双模型决策审查)。
+
+决策审查启动时按“显式覆盖 → 桌面 app → VS Code 扩展 → PATH”发现 CLI；Codex app 发现
+需要 WSL 的 `cmd.exe` 和 `wslpath`，互操作不可用时跳过。用单场日志中的来源、版本和完整路径
+核对实际选择；内部目录改变时用 `CLAUDE_BIN`／`CODEX_BIN` 固定 CLI。帮助输出缺少必需参数
+会在模型调用和日志之前拒绝，需维护者选用兼容版本，不降低检查。
+smoke 覆盖已改名为 `DEBATE_SMOKE_*`；旧名忽略且只提示一次。B 清除 A 的 app 环境后使用
+CLI 默认配置目录，原有 `CLAUDE_CONFIG_DIR`／`CODEX_HOME` 不再传递。定位、清除名单和
+[smoke 新旧变量对照](../../.harness/workflows/decision-review.md#运行审查方)由工作流维护；
+登录可用性需要另行授权实机验证，离线检查只证明脚本合同。

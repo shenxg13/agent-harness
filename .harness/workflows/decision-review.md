@@ -95,14 +95,62 @@ bash scripts/debate/run-b.sh "$D" review codex
 ```
 
 步骤为 `review`、`followup`、`check`、`draft`，另有已授权验证用的 `smoke`。
-CLI 路径先用 `CODEX_BIN`／`CLAUDE_BIN`，否则合并当前用户 VS Code 本地与远程扩展目录的可执行候选，
-按扩展版本选最新，不按目录前缀排序；两个根分别是 `~/.vscode-server/extensions` 与
-`~/.vscode/extensions`。没有扩展候选时再查 `PATH` 中的 `claude`／`codex`；都没有则拒绝启动。
+CLI 发现支持 Linux／WSL x86_64，不支持 macOS 或原生 Windows。按下列来源分层选择，
+前一层有可用 CLI 就不再探测后一层，即使后一层版本更高：
+
+1. 显式 `CLAUDE_BIN`／`CODEX_BIN`：只检查该文件，不探测其他来源；覆盖无效则拒绝启动。
+2. 桌面 app：仅当 `CLAUDE_CODE_ENTRYPOINT` 为 `claude-desktop` 或 `claude-desktop-3p` 时，
+   Claude 优先采用存在且可执行的 `CLAUDE_CODE_EXECPATH`，不探测其他来源；它的版本无法读取时
+   退出 2、不写日志，不回退扫描。该变量也会出现在非桌面 Claude 会话中，此时忽略它。
+   没有采用 EXECPATH 时，在 `~/.claude/remote/ccd-cli/*` 中选择。Codex 只在 WSL 中探测，通过 Windows 互操作
+   `cmd.exe /d /c 'echo %USERPROFILE%'` 取得用户目录，再经 `wslpath -u` 转成 Linux 路径，
+   从该目录的 `.codex/bin/wsl/*/codex` 中选择。缺少互操作工具或获取目录失败时跳过此层。
+   app 目录候选运行 `--version`，忽略不可执行、版本查询失败或版本不可解析的文件，
+   按实际版本的 `sort -V` 语义选最高版本；同版本按 C locale 路径字典序取第一个，
+   不以版本目录或 hash 目录名排序。
+3. VS Code 本地与远程扩展：合并 `~/.vscode/extensions` 和 `~/.vscode-server/extensions`，
+   保留按扩展版本选最新的逻辑，同版本按路径字典序取第一个。
+4. `PATH` 中的 `claude`／`codex`。所有来源均不可用时以退出码 2 拒绝，并列出已检查的来源类别。
+
+日志来源类别为 `explicit`、`claude-desktop`、`codex-app`、`vscode-extension`、`path`。
+桌面 app 的内部路径不是公开稳定接口；布局变化时可用显式覆盖或 `PATH` 后备，
+本入口不安装或升级 CLI。每次启动仅对需要的候选查询版本，额外成本通常为数秒，未设实测时延保证。
+选定 CLI 后，Claude 的 `--help` 必须包含 `--restricted`、`--permission-prompts`、
+`--strict-mcp-config`、`--disallowedTools`；Codex 的 `exec --help` 必须包含 `--json`、`-o`、`-s`、`-C`。
+帮助命令失败或缺少任一参数都以退出码 2 拒绝，不调用模型、不写日志；不因此放宽启动权限参数。
+
 启动前读取调用工作树的 `scripts/debate/config.env`，不是机器本地 `.env`。配置缺失、任一模型或
 档位为空、凭据路径为空、为绝对路径或含 `..` 时拒绝，不调用 CLI、不写日志；每个配置路径生成
 指向主检出的 Read 拒绝规则。配置作为已评审的 Shell 文件读取，不能包含秘密或读取凭据的命令。
-正式步骤只使用配置值；`CLAUDE_MODEL`、`CLAUDE_EFFORT`、`CODEX_MODEL`、`CODEX_EFFORT`
-环境覆盖仅对已授权的 `smoke` 生效。
+正式步骤只使用配置值；已授权的 `smoke` 可使用下列新环境变量覆盖模型和档位：
+
+| 已废弃变量（忽略） | smoke 覆盖变量 |
+| --- | --- |
+| `CLAUDE_MODEL` | `DEBATE_SMOKE_CLAUDE_MODEL` |
+| `CLAUDE_EFFORT` | `DEBATE_SMOKE_CLAUDE_EFFORT` |
+| `CODEX_MODEL` | `DEBATE_SMOKE_CODEX_MODEL` |
+| `CODEX_EFFORT` | `DEBATE_SMOKE_CODEX_EFFORT` |
+
+旧名直接废弃，无兼容期。`smoke` 发现任一旧名（包括空值）只在 stderr 提示一次“已废弃、未生效”，
+仍使用配置值或新名；正式步骤不提示，也不采用新旧覆盖。Claude app 携带的 `CLAUDE_EFFORT`
+不再改变 smoke 档位。
+
+CLI 定位与 smoke 参数解析完成后，在帮助检查和 B 启动之前清除继承的 A 会话变量。
+无论 A／B 的组合如何，均使用同一名单：
+
+- 前缀 `CLAUDECODE*`、`CLAUDE_*`、`CODEX_*`，包括 CLI 覆盖、会话通道、令牌端点、
+  `CLAUDE_CONFIG_DIR`、`CODEX_HOME` 和 `CODEX_SQLITE_HOME`。
+- 精确名称 `ANTHROPIC_BASE_URL`、`USE_LOCAL_OAUTH`、`USE_STAGING_OAUTH`、`API_TIMEOUT_MS`、
+  `DISABLE_AUTOUPDATER`、`DISABLE_MICROCOMPACT`、`MCP_CONNECTION_NONBLOCKING`、
+  `MCP_SERVER_CONNECTION_BATCH_SIZE`、`AI_AGENT`、`LOG_FORMAT`、`RUST_LOG`、
+  `NODE_TLS_REJECT_UNAUTHORIZED`、`NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S`。
+
+清除仅作用于启动脚本及其子进程，不改变 A 的进程或全局配置。保留普通环境：`PATH`、`HOME`、语言、
+终端与分页器、代理、WSL／Windows 互操作、桌面会话，以及 `COREPACK_ENABLE_AUTO_PIN`、`GIT_EDITOR`；
+入口给 Claude 显式设置的 `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` 在清除后重新设置。
+用户在 profile 自设的配置目录也被清除，B 按 CLI 默认目录寻找配置和凭据。
+能否正常登录须由单独授权的实机 smoke 验证；失败时报告，不自行扩大保留名单或重试付费调用。
+删除环境标记不解除外层沙箱、网络或文件系统限制。
 
 | B | 阅读、联网与执行边界 |
 | --- | --- |
@@ -140,11 +188,12 @@ show 只接受 40 位完整提交加路径；blame 只读主检出 HEAD 中的�
 
 脚本拒绝提示中未填的占位符，以及已存在的输出、事件流、stderr 或退出码；同一步用文件锁防并发启动。
 输出为 `<步骤>-<B>.md`，另有 `.events.jsonl`、`.stderr`、`.rc`。日志依次登记启动、结束、记录：
-CLI 版本、模型档位、主检出 HEAD、取数是否开启、提示哈希、耗时、退出码、会话 ID、输出哈希、用量和工具调用次数。
+CLI 来源类别、版本和完整路径、模型档位、主检出 HEAD、取数是否开启、提示哈希、耗时、退出码、会话 ID、输出哈希、用量和工具调用次数。
 以 `.rc` 为结束标志；非零退出或无输出时保留所有证据，停止并让用户决定，不能自行重跑付费调用。
 确认后需要另一次尝试时，先把失败产物保留到 `attempts/`，不得覆盖。
 
-Claude 作 A 可用后台 Bash 并等完成通知；Codex 作 A 须按当前沙箱政策申请授权的网络执行。
+A 在 Claude 桌面 app 或 Codex app 中运行时，使用 app 支持的后台执行并等待完成通知；
+按当前 app 的沙箱政策申请授权的联网执行。完整 CLI 路径仅留本地日志，发布结果摘要时去除本机路径与会话内容。
 预留足够时间（历史单次可超过二十分钟），不要用短超时杀掉调用；超时后先查 `.rc` 和事件流增长，
 不另起重复进程。运行时遵守当前会话网络、文件系统和审批政策，brief 授权不绕过上层限制。
 日志时间用 UTC，面向用户的日期用项目时区。
