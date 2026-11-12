@@ -22,6 +22,8 @@ expect_pass() {
     local record=$2
     "$command_under_test" "$record" >"$test_root/$name.stdout" ||
         fail "$name unexpectedly failed"
+    grep -Fq 'OK:' "$test_root/$name.stdout" ||
+        fail "$name lacked a success message"
 }
 
 expect_fail() {
@@ -33,6 +35,9 @@ expect_fail() {
     fi
     grep -Fq 'review convergence record is invalid' \
         "$test_root/$name.stderr" || fail "$name lacked a clear failure"
+    if grep -Fq 'OK:' "$test_root/$name.stdout"; then
+        fail "$name reported success for an invalid record"
+    fi
 }
 
 mutate() {
@@ -113,6 +118,37 @@ cat >"$test_root/finding.json" <<'EOF'
 EOF
 
 expect_pass r1_complete "$test_root/r1.json"
+
+# The heredoc fixture includes a trailing newline and must remain valid.
+: >"$test_root/empty.json"
+expect_fail empty_record "$test_root/empty.json"
+
+printf ' \t\n \n' >"$test_root/whitespace.json"
+expect_fail whitespace_record "$test_root/whitespace.json"
+
+printf '%s\n' 'not json' >"$test_root/non_json.json"
+expect_fail non_json_record "$test_root/non_json.json"
+
+for value in '[]' '"x"' 'null'; do
+    printf '%s\n' "$value" >"$test_root/non_object.json"
+    expect_fail "non_object_$value" "$test_root/non_object.json"
+done
+
+cat "$test_root/r1.json" "$test_root/r1.json" >"$test_root/two_records.json"
+expect_fail two_valid_records "$test_root/two_records.json"
+
+printf '%s\n' '{}' >"$test_root/invalid_then_valid.json"
+cat "$test_root/r1.json" >>"$test_root/invalid_then_valid.json"
+expect_fail invalid_then_valid_record "$test_root/invalid_then_valid.json"
+
+# Exercise the wrapper's output guard without changing the real rule filter.
+mkdir "$test_root/empty_filter"
+cp "$command_under_test" "$test_root/empty_filter/review_convergence.sh"
+printf '%s\n' 'empty' >"$test_root/empty_filter/review_convergence.jq"
+(
+    command_under_test="$test_root/empty_filter/review_convergence.sh"
+    expect_fail filter_without_output "$test_root/r1.json"
+)
 
 mutate "$test_root/r1.json" "$test_root/r0.json" \
     '.review_id = "review-18-99-R0" | .review_round = "R0" |
