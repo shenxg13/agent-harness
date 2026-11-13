@@ -2,8 +2,10 @@
 # Offline contract regression: isolated repositories, fake model CLIs and fake gh.
 set -euo pipefail
 repo_root=$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd)
-test_root=$(mktemp -d "${TMPDIR:-/tmp}/agent-harness-debate.XXXXXX")
+test_root=$(mktemp -d "${TMPDIR:-/tmp}/./agent-harness-debate.XXXXXX")
 trap 'rm -rf -- "$test_root"' EXIT
+# Always exercise normalization, even when TMPDIR is unset or has no trailing slash.
+test_root=$(realpath -e -- "$test_root")
 passed=0 failed=0
 
 fixture() {
@@ -36,7 +38,7 @@ fi
 if [[ ${1:-} == --help || ${2:-} == --help ]]; then
     printf '%s\n' "$*" >"$TRACE.help"
     if [[ ${HELP_FAIL:-} == yes ]]; then exit 1; fi
-    for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools --json -o -s -C; do
+    for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools --json -o -s -C -c --disable --ephemeral; do
         if [[ $flag != "${MISSING_FLAG:-}" ]]; then
             printf '  %s VALUE\n' "$flag"
         else
@@ -46,6 +48,33 @@ if [[ ${1:-} == --help || ${2:-} == --help ]]; then
     done
     exit 0
 fi
+# Preflight is a CLI query, not a model invocation; keep its trace separate.
+original_args=("$@")
+while [[ ${1:-} == -c ]]; do shift 2; done
+if [[ ${1:-} == mcp && ${2:-} == list && ${3:-} == --json ]]; then
+    jq -nc --arg cwd "$PWD" --args '{cwd:$cwd,args:$ARGS.positional,env:env}' \
+        -- "${original_args[@]}" >>"$TRACE.mcp"
+    call=$(jq -s length "$TRACE.mcp")
+    [[ -z ${PREFLIGHT_LOG:-} || ! -e $PREFLIGHT_LOG ]] || exit 91
+    case ${MCP_CASE:-empty}:$call in
+        command-failed:1 | verify-failed:2) exit 9 ;;
+        malformed:1 | verify-malformed:2) printf 'SENSITIVE_FIXTURE not JSON\n'; exit 0 ;;
+        multiple-json:1) printf '[]\n[]\n'; exit 0 ;;
+        wrong-shape:1) printf '{}\n'; exit 0 ;;
+        missing-enabled:1) printf '[{"name":"probe"}]\n'; exit 0 ;;
+        dot-name:1 | verify-dot-name:2) printf '[{"name":"dot.name","enabled":false}]\n'; exit 0 ;;
+        empty:*) printf '[]\n'; exit 0 ;;
+    esac
+    # Same shape as CLI inventory, including a disabled server and private config data.
+    jq -nc --arg mode "${MCP_CASE:-}" --args '
+      $ARGS.positional as $args |
+      [{name:"user_stdio",enabled:true},{name:"http-1",enabled:true},{name:"Already_Disabled",enabled:false}] |
+      map(. + {private_value:"SENSITIVE_FIXTURE"} |
+        .name as $name | if $mode != "still-enabled" and ($args | index("mcp_servers." + $name + ".enabled=false")) then .enabled=false else . end)' \
+        -- "${original_args[@]}"
+    exit 0
+fi
+set -- "${original_args[@]}"
 jq -n --arg cwd "$PWD" --arg bin "$0" --arg memory "${CLAUDE_CODE_DISABLE_AUTO_MEMORY:-}" \
     --args '{cwd:$cwd,bin:$bin,memory:$memory,args:$ARGS.positional,env:env}' -- "$@" >"$TRACE"
 cat >"$TRACE.prompt"
@@ -190,6 +219,62 @@ codex_success() {
     grep -Fq "$(git -C "$main" rev-parse HEAD)" "$d/log.md"
     grep -Fq "$(sha256sum "$d/review-codex.md" | cut -c1-64)" "$d/log.md"
 }
+codex_boundary() {
+    local budget=$1 control=$2
+    if [[ $control == mcp ]]; then run_env+=(MCP_CASE=multiple); fi
+    if [[ $budget == yes ]]; then printf '{}' >"$d/fetch-budget.json"; fi
+    expect_rc 0 run_b
+    case $control in
+        mcp)
+            # shellcheck disable=SC2016 # jq variables, not Shell expansion.
+            args_match '.args as $args | all("user_stdio", "http-1", "Already_Disabled";
+              . as $name | $args | index("mcp_servers."+$name+".enabled=false") as $i |
+              $i != null and .[$i-1] == "-c")'
+            ;;
+        agents)
+            # shellcheck disable=SC2016 # jq variables, not Shell expansion.
+            args_match '.args | index("agents.enabled=false") as $i | $i != null and .[$i-1] == "-c"'
+            ;;
+        ephemeral) args_match '.args | any(. == "--ephemeral")' ;;
+        user-config) args_match '.args | all(. != "--ignore-user-config")' ;;
+        *)
+            jq -e --arg feature "$control" '
+              .args | index($feature) as $i | $i != null and .[$i-1] == "--disable"' "$trace" >/dev/null
+            ;;
+    esac
+}
+codex_mcp_preflight() {
+    local budget=$1 variant=$2 cwd=$main expected=2 calls=1
+    if [[ $budget == yes ]]; then
+        printf '{}' >"$d/fetch-budget.json"
+        cwd=$d/evidence
+    fi
+    run_env+=(MCP_CASE="$variant" PREFLIGHT_LOG="$d/log.md" CODEX_FUTURE_MARKER=removed http_proxy=kept)
+    case $variant in
+        empty | multiple) expected=0 calls=2 ;;
+        still-enabled | verify-*) calls=2 ;;
+    esac
+    expect_rc "$expected" run_b
+    jq -se --arg cwd "$cwd" --argjson calls "$calls" '
+      length==$calls and all(.[]; .cwd==$cwd and
+        (.env | has("CODEX_FUTURE_MARKER") | not) and .env.http_proxy=="kept") and
+      .[0].args==["mcp","list","--json"]' "$trace.mcp" >/dev/null
+    if [[ $expected == 0 ]]; then
+        args_match '.args | all(. != "mcp_servers={}" and . != "--ignore-user-config")'
+        if [[ $variant == empty ]]; then
+            args_match '.args | all(startswith("mcp_servers.") | not)'
+        else
+            jq -se '.[1].args == ["-c","mcp_servers.user_stdio.enabled=false",
+              "-c","mcp_servers.http-1.enabled=false","-c","mcp_servers.Already_Disabled.enabled=false",
+              "mcp","list","--json"]' "$trace.mcp" >/dev/null
+        fi
+        [[ -s $trace && -s $d/log.md ]]
+    else
+        [[ ! -e $trace && ! -e $d/log.md && ! -e $d/review-codex.rc && ! -e $d/review-codex.stderr ]]
+        grep -q 'MCP' "$case_root/stderr"
+    fi
+    ! grep -q SENSITIVE_FIXTURE "$case_root/stdout" "$case_root/stderr"
+}
 claude_permissions() {
     local budget=$1
     configure
@@ -198,31 +283,29 @@ claude_permissions() {
     jq -e --arg main "$main" --arg scripts "${runner%/run-b.sh}" \
         --argjson budget "$([[ $budget == yes ]] && echo true || echo false)" '
       .cwd==$main and .memory=="1" and
-      (.args | (index("--tools") as $i | .[$i+1]=="Read,Grep,Glob,Bash,WebSearch,WebFetch") and
-      any(.=="--restricted") and any(.=="--strict-mcp-config") and
-      (any(.=="--mcp-config")|not) and
-      (index("--permission-mode") as $i | .[$i+1]=="dontAsk") and
-      (index("--permission-prompts") as $i | .[$i+1]=="none") and
-      (.[index("--disallowedTools")+1:index("--strict-mcp-config")] ==
-       ["Read(/"+$main+"/.env)","Read(/"+$main+"/var/private/second key)"]) and
-      (.[index("--allowedTools")+1:index("--disallowedTools")] ==
-       (["Read","Grep","Glob","WebSearch","WebFetch","Bash(scripts/debate/git-read.sh:*)",
-         "Bash("+$scripts+"/git-read.sh:*)"] +
-        if $budget then ["Bash(scripts/debate/fetch.sh:*)","Bash("+$scripts+"/fetch.sh:*)"] else [] end)))' "$trace" >/dev/null
+      .args == (["-p","--model","project-claude","--effort","high",
+        "--restricted","--tools","Read,Grep,Glob,Bash,WebSearch,WebFetch","--allowedTools",
+        "Read","Grep","Glob","WebSearch","WebFetch","Bash(scripts/debate/git-read.sh:*)",
+        "Bash("+$scripts+"/git-read.sh:*)"] +
+        (if $budget then ["Bash(scripts/debate/fetch.sh:*)","Bash("+$scripts+"/fetch.sh:*)"] else [] end) +
+        ["--disallowedTools","Read(/"+$main+"/.env)","Read(/"+$main+"/var/private/second key)",
+         "--strict-mcp-config","--permission-mode","dontAsk","--permission-prompts","none",
+         "--output-format","stream-json","--verbose"])' "$trace" >/dev/null
     [[ $(cat "$d/review-claude.rc") == 0 && -s $d/review-claude.md ]]
 }
 failure_final() {
-    local who=$1 mode=$2 expected=1
+    local who=$1 mode=$2 expected=1 calls=3
+    [[ $who != codex ]] || calls=5
     [[ $mode != nonzero ]] || expected=9
     run_env+=(MODE="$mode")
     expect_rc "$expected" run_b "$who"
     [[ $(cat "$d/review-$who.rc") == "$expected" ]]
     if [[ $mode != nonzero ]]; then grep -q 没有输出 "$d/log.md"; fi
     cp "$d/log.md" "$case_root/before"
-    [[ $(wc -l <"$trace.calls") == 3 ]]
+    [[ $(wc -l <"$trace.calls") == "$calls" ]]
     expect_rc 2 run_b "$who"
     [[ $(sha256sum <"$case_root/before") == "$(sha256sum <"$d/log.md")" ]]
-    [[ $(wc -l <"$trace.calls") == 3 ]]
+    [[ $(wc -l <"$trace.calls") == "$calls" ]]
 }
 concurrent() {
     mkfifo "$case_root/release"
@@ -241,7 +324,7 @@ concurrent() {
     printf 'finish\n' >"$case_root/release"
     wait "$pid"
     trap - EXIT
-    [[ $(cat "$d/review-codex.rc") == 0 && $(wc -l <"$trace.calls") == 3 ]]
+    [[ $(cat "$d/review-codex.rc") == 0 && $(wc -l <"$trace.calls") == 5 ]]
 }
 worktree() {
     configure
@@ -680,6 +763,8 @@ run_test() {
         cat "$test_root/output" >&2
     fi
 }
+test_root_normalized() { [[ $test_root == "$(realpath -e -- "$test_root")" ]]; }
+run_test test-root-normalized test_root_normalized
 run_test placeholder placeholder
 for suffix in md events.jsonl stderr rc; do run_test "existing-$suffix" existing "$suffix"; done
 for state in branch detached dirty untracked; do run_test "main-$state" main_gate "$state"; done
@@ -720,10 +805,16 @@ for variant in no-cmd no-wslpath failed-cmd failed-wslpath linux; do run_test "i
 for flag in --restricted --permission-prompts --strict-mcp-config --disallowedTools; do
     run_test "capability-claude-$flag" missing_capability claude "$flag"
 done
-for flag in --json -o -s -C; do run_test "capability-codex-$flag" missing_capability codex "$flag"; done
+for flag in --json -o -s -C -c --disable --ephemeral; do run_test "capability-codex-$flag" missing_capability codex "$flag"; done
 run_test failure-claude-is-error failure_final claude error
 for budget in yes no; do
     run_test "codex-$budget" codex_success "$budget"
+    for control in mcp agents apps plugins remote_plugin memories browser_use computer_use image_generation hooks multi_agent skill_search ephemeral user-config; do
+        run_test "codex-boundary-$budget-$control" codex_boundary "$budget" "$control"
+    done
+    for variant in empty multiple dot-name malformed multiple-json wrong-shape missing-enabled command-failed verify-failed verify-malformed verify-dot-name still-enabled; do
+        run_test "codex-mcp-$budget-$variant" codex_mcp_preflight "$budget" "$variant"
+    done
     run_test "claude-$budget" claude_permissions "$budget"
 done
 run_test concurrent concurrent

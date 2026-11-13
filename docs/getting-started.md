@@ -43,7 +43,14 @@ git diff --cached --check
 
 1. 在 Linux／WSL 安装 Claude 和 Codex CLI，并按当前会话政策授权联网。启动脚本先用
    `CLAUDE_BIN`／`CODEX_BIN`，再查桌面 app、VS Code 扩展，最后查 `PATH`；找不到则拒绝。
-   桌面会话判别、实际版本比较和后备规则见[运行审查方](../.harness/workflows/decision-review.md#运行审查方)。
+   B 只使用 CLI 默认位置的登录；自设配置目录和匹配前缀的认证、服务方选择变量会被清除，
+   依赖它们的项目须先在默认位置登录。Codex B 在实际工作目录用 `mcp list --json` 枚举服务器，
+   逐项设置 `enabled=false` 并复查；命令失败、列表结构不符、名称不匹配 `^[A-Za-z0-9_-]+$`
+   或仍有启用项时，在日志和模型调用前以退出码 2 拒绝。该机制依赖 CLI 的列表输出与名称寻址。
+   首次枚举可能探测 HTTP MCP 的 OAuth 元数据，执行阶段禁用不代表整个预检没有网络请求。
+   另关闭工作流列出的扩展及多代理工具并使用 `--ephemeral`，保留用户提供方、代理和网络配置。
+   功能名与实际隔离须按 CLI 版本核验。
+   清除示例、关闭名单、桌面会话判别和后备规则见[运行审查方](../.harness/workflows/decision-review.md#运行审查方)。
 2. 核对项目所有的 `scripts/debate/config.env`：Claude 默认 `claude-opus-5-5`、Codex 默认
    `gpt-6-astra`，档位均为 `xhigh`，Claude 禁止 Read 的凭据相对路径默认为 `.env`，可列多个。
    配置缺失、任一模型或档位为空、路径为空、为绝对路径或含 `..` 会在调用 CLI 和写日志前拒绝。

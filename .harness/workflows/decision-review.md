@@ -116,7 +116,8 @@ CLI 发现支持 Linux／WSL x86_64，不支持 macOS 或原生 Windows。按下
 桌面 app 的内部路径不是公开稳定接口；布局变化时可用显式覆盖或 `PATH` 后备，
 本入口不安装或升级 CLI。每次启动仅对需要的候选查询版本，额外成本通常为数秒，未设实测时延保证。
 选定 CLI 后，Claude 的 `--help` 必须包含 `--restricted`、`--permission-prompts`、
-`--strict-mcp-config`、`--disallowedTools`；Codex 的 `exec --help` 必须包含 `--json`、`-o`、`-s`、`-C`。
+`--strict-mcp-config`、`--disallowedTools`；Codex 的 `exec --help` 必须包含 `--json`、`-o`、`-s`、`-C`、
+`-c`、`--disable`、`--ephemeral`。
 帮助命令失败或缺少任一参数都以退出码 2 拒绝，不调用模型、不写日志；不因此放宽启动权限参数。
 
 启动前读取调用工作树的 `scripts/debate/config.env`，不是机器本地 `.env`。配置缺失、任一模型或
@@ -149,14 +150,52 @@ CLI 定位与 smoke 参数解析完成后，在帮助检查和 B 启动之前清
 终端与分页器、代理、WSL／Windows 互操作、桌面会话，以及 `COREPACK_ENABLE_AUTO_PIN`、`GIT_EDITOR`；
 入口给 Claude 显式设置的 `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` 在清除后重新设置。
 用户在 profile 自设的配置目录也被清除，B 按 CLI 默认目录寻找配置和凭据。
+前缀清除同样会移除 CLI 通过环境变量完成的认证与服务方选择，例如 `CLAUDE_CODE_OAUTH_TOKEN`、
+`CLAUDE_CODE_OAUTH_REFRESH_TOKEN`、`CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR`、
+`CLAUDE_CODE_USE_BEDROCK`／`CLAUDE_CODE_USE_VERTEX`／`CLAUDE_CODE_USE_FOUNDRY`、
+`CLAUDE_CODE_SKIP_*_AUTH`，以及 `CODEX_API_KEY`／`CODEX_ACCESS_TOKEN`。
+这些名称只是当前 CLI 的示例，会随版本变化，以前缀规则为准；不承诺各变量的具体语义。
+`ANTHROPIC_BASE_URL` 按精确名称清除。B 只使用 CLI 默认位置的登录，依赖上述变量的项目须先在
+默认位置登录；`ANTHROPIC_API_KEY`、`OPENAI_API_KEY` 不在清除名单内，此说明不保证 CLI 忽略它们。
 能否正常登录须由单独授权的实机 smoke 验证；失败时报告，不自行扩大保留名单或重试付费调用。
 删除环境标记不解除外层沙箱、网络或文件系统限制。
 
 | B | 阅读、联网与执行边界 |
 | --- | --- |
 | Claude | 保留 `--restricted`；无论有无预算，以 `--disallowedTools` 的 Read 路径规则拒绝主检出凭据文件，其他研究资料仍可读；`--strict-mcp-config` 且不传 MCP 配置，不加载 MCP 连接器；WebSearch/WebFetch 联网；Bash 显式放行 git-read.sh，有预算时另放行 fetch.sh，不显式放行裸 git、Python 或写入工具；dontAsk 仍自动运行内置只读命令，不加载自动记忆 |
-| Codex，无预算 | `read-only`，工作目录为主检出；原生 live web search；可运行只读命令和 Python 提取文本 |
-| Codex，有预算 | `workspace-write` 加沙箱网络，工作目录为本场 evidence/；只有该目录与系统临时目录可写，仓库其余部分只读 |
+| Codex，无预算 | `read-only`，工作目录为主检出；原生 live web search；可运行只读命令和 Python 提取文本；枚举并逐项禁用 MCP 服务器、关闭下列功能，不持久化会话 |
+| Codex，有预算 | `workspace-write` 加沙箱网络，工作目录为本场 evidence/；只有该目录与系统临时目录可写，仓库其余部分只读；同样逐项禁用 MCP 服务器、关闭下列功能，不持久化会话 |
+
+Codex 两种模式在参数能力检查之后、写启动日志和调用模型之前，以清除后的环境在 B 的实际工作目录
+运行 `"$bin" mcp list --json`（无预算为主检出，有预算为本场 `evidence/`），枚举 CLI 解析出的服务器。
+对名称匹配 `^[A-Za-z0-9_-]+$` 的每一项追加 `-c "mcp_servers.<name>.enabled=false"`，
+带同一组覆盖参数再次列出，要求每一项的 `enabled` 都为 false；模型调用复用该组覆盖参数。
+列出命令失败、输出不是单个符合预期结构的 JSON 数组、名称不符合规则（包括带点名称），或复查仍有
+启用项时，均退出 2 并在 stderr 说明原因，不调用模型、不写启动日志；不输出列表原文。
+这依赖选定 CLI 的 `mcp list --json` 输出结构和名称可寻址性；目录加载规则由该 CLI 决定，
+所以枚举与执行必须使用同一目录。CLI `0.167.0-alpha.4.1` 的回环探针还表明：首次枚举会对启用的
+HTTP MCP 地址发起 OAuth 元数据 GET 探测；逐项禁用后复查与 `exec` 均未连接这些服务器。
+该机制关闭模型执行时的 MCP，不能承诺整个预检过程没有 HTTP 请求。
+空表覆盖不会删除按层合并的已有服务器，不能用于关闭 MCP。
+
+此外逐项 `--disable` 关闭 `apps`、`plugins`、`remote_plugin`、`memories`、`browser_use`、`computer_use`、
+`image_generation`、`hooks`、`multi_agent`、`skill_search`，限制内置远程连接、应用、插件及记忆等扩展。
+另用 `-c 'agents.enabled=false'` 关闭多代理工具。CLI `0.167.0-alpha.4.1` 的实测中，
+仅关闭 `multi_agent` 功能位仍会暴露 `collaboration.*`，不能以功能位为 false 代替工具定义检查。
+不使用 `--ignore-user-config`，不修改用户配置文件；用户的模型提供方、代理和网络设置继续生效。
+`--ephemeral` 不把 B 的会话文件写到磁盘，事后排查依赖本入口保存的事件流、stderr 和最终输出。
+功能名随 CLI 版本变化，参数能力检查只证明开关存在，不能证明名称仍有效或实际连接已经隔离。
+边界以这份关闭名单为准，未来新增功能或新的连接器机制不会自动纳入；升级后须核对功能名并授权
+smoke，检查事件流和 stderr 没有 MCP／应用连接，且记忆目录没有新增或修改的文件。
+
+smoke 应按当前实际工具模式调用原生搜索：code mode 下通过 `functions.exec` 调用
+`tools.web__run` 的 `search_query`，不能只因没有独立名为 `web_search` 的工具就判定搜索不可用。
+以实际搜索结果验证联网；工具自述只能辅助。检查暴露面时分别记录具体 MCP／应用连接器、
+通用 MCP 资源接口和多代理工具；`list_mcp_resources` 等通用接口存在不代表连接器已加载。
+无推理请求捕获可验证工具定义，不能替代真实搜索验收；单独的 `debug prompt-input` 可能遗漏
+运行时追加工具。首次失败保留原产物，后续获授权的 smoke 使用独立场次目录，不覆盖失败记录。
+配置项参考 [Codex 配置文档](https://learn.chatgpt.com/docs/config-file/config-reference)，
+实际参数能力和隔离证据以选定 CLI 的帮助输出及本次验证记录为准。
 
 提示必须写实际工具边界：Claude 不直接读 PDF，原文用提取文本；查忽略目录时给 Grep 明确路径；
 Claude 运行放行命令时不要用管道或 `&&`。Codex 有预算时先切到主检出再运行仓库只读命令，
@@ -319,7 +358,8 @@ scripts/debate/snapshot-issue.sh "$N" "$D/full-snapshot.md" OWNER/REPO
 - 大文件进入 B 上下文后会在后续回合累计缓存读取成本。给精确出处和必要片段；省材料不能省关键证据。
 - `gh --jq .body` 多出的末尾换行会影响哈希，用 `jq -j`；评论 ID 用 `${URL##*-}`，不能按所有连字符切分。
 - Claude 不显式放行 gh 或 Python；只在线上评论或 PDF 的理由须预先保存可读快照和文本。
-- 不把无表态写成共识；工具事件比模型对工具结果的转述可靠。查 Codex 会话可只读查看 resume，
-  不输入或选持久授权；Claude 会话 JSONL 用 jq 查看，不用 resume 再启动。
+- 不把无表态写成共识；工具事件比模型对工具结果的转述可靠。`run-b.sh` 启动的 Codex B 使用
+  `--ephemeral`，查本场事件流、stderr 与最终输出，不依赖 resume；Claude 会话 JSONL 用 jq 查看，
+  不用 resume 再启动。
 - 每场 `process-notes.md` 记偏差、卡点、分级调整、调用次数与成本、联网和取数实际使用、确认次数、
   交给用户的事项与理由，供后续改进；流程更新须回到其所属规则，而非只留在场次目录。

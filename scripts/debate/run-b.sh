@@ -134,22 +134,63 @@ check_cli_capabilities "$b" || {
     exit 2
 }
 
+# Enumerate in the same cwd as exec, after environment/capability checks and before logging.
+if [[ $b == codex ]]; then
+    if [[ $fetch == yes ]]; then
+        mkdir -p "$d/evidence" || exit 2
+        codex_cwd=$d/evidence
+        sandbox=(-s workspace-write -c sandbox_workspace_write.network_access=true -C "$codex_cwd")
+    else
+        codex_cwd=$repo
+        sandbox=(-s read-only -C "$codex_cwd")
+    fi
+    mcp_overrides=()
+    for mcp_stage in enumerate verify; do
+        if ! mcp_inventory=$(cd -- "$codex_cwd" && "$bin" "${mcp_overrides[@]}" mcp list --json); then
+            echo "Codex MCP 列表命令失败（$mcp_stage），拒绝启动" >&2
+            exit 2
+        fi
+        # Validate exactly one inventory; never print it because it can contain private config.
+        if ! jq -se 'length == 1 and (.[0] | type == "array" and all(.[];
+          type == "object" and (.name | type == "string") and (.enabled | type == "boolean")))' \
+            <<<"$mcp_inventory" >/dev/null 2>&1; then
+            echo "Codex MCP 列表无法解析（$mcp_stage），拒绝启动" >&2
+            exit 2
+        fi
+        if ! jq -e 'all(.[]; .name | test("^[A-Za-z0-9_-]+$"))' <<<"$mcp_inventory" >/dev/null; then
+            echo "Codex MCP 列表包含无法安全寻址的服务器名称（$mcp_stage），拒绝启动" >&2
+            exit 2
+        fi
+        if [[ $mcp_stage == enumerate ]]; then
+            mapfile -t mcp_names < <(jq -r '.[].name' <<<"$mcp_inventory")
+            for mcp_name in "${mcp_names[@]}"; do
+                mcp_overrides+=(-c "mcp_servers.$mcp_name.enabled=false")
+            done
+        elif ! jq -e 'all(.[]; .enabled == false)' <<<"$mcp_inventory" >/dev/null; then
+            echo 'Codex MCP 复查仍有启用的服务器，拒绝启动' >&2
+            exit 2
+        fi
+    done
+fi
+
 log() { echo "| $(date -u +%FT%TZ) | $label $1 | $2 |" >>"$d/log.md"; }
 log 启动 "CLI 来源 $cli_source；版本 $cli_selected_version；路径 \`$bin\`；$model，$effort；主检出 HEAD $main_head；联网搜索开，取数 $fetch；prompt SHA-256 \`$(sha256sum "$prompt" | cut -c1-64)\`"
 start=$(date +%s)
 case $b in
     codex)
-        # 联网搜索走 Codex 原生 web_search（模型侧执行，不需要沙箱联网）。
+        # 联网搜索走 Codex 原生搜索（code mode 为 web__run，不需要沙箱联网）。
         # 取数要在沙箱里联网：改用 workspace-write 并打开网络，工作根目录设为本场 evidence/，
         # 可写范围因此只有 evidence/（及系统临时目录），仓库其余部分仍只读。
-        if [[ $fetch == yes ]]; then
-            mkdir -p "$d/evidence"
-            sandbox=(-s workspace-write -c sandbox_workspace_write.network_access=true -C "$d/evidence")
-        else
-            sandbox=(-s read-only -C "$repo")
-        fi
+        # 保留用户提供方与网络配置，复用启动前逐服务器禁用并复查过的 MCP 覆盖项。
+        # agents.enabled 另行关闭当前 CLI 的多代理工具，不能只依赖 multi_agent 功能位。
+        # ephemeral 不留 CLI 会话文件；排查使用本入口的事件流、stderr 与最终输出。
         "$bin" exec -m "$model" -c "model_reasoning_effort=\"$effort\"" -c 'web_search="live"' "${sandbox[@]}" \
-            --json -o "$out" - <"$prompt" >"$ev" 2>"$err"
+            "${mcp_overrides[@]}" \
+            -c 'agents.enabled=false' \
+            --disable apps --disable plugins --disable remote_plugin --disable memories \
+            --disable browser_use --disable computer_use --disable image_generation \
+            --disable hooks --disable multi_agent --disable skill_search \
+            --ephemeral --json -o "$out" - <"$prompt" >"$ev" 2>"$err"
         rc=$?
         ;;
     claude)
